@@ -1,30 +1,43 @@
-<!doctype html><html lang="pl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>BRCRM — Szanse sprzedaży</title><link rel="stylesheet" href="styles.css"></head><body>
+<!doctype html><html lang="pl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>BRCRM — CRM biura rachunkowego</title><link rel="stylesheet" href="styles.css"></head><body>
 <div class="shell">
 <aside>
   <div class="brand">BR<span>CRM</span></div>
-  <div class="nav-section">OGÓLNE</div>
-  <nav>
-    <button data-view="dashboard"><span>◫</span>Pulpit</button>
-    <button data-view="leads"><span>◎</span>Leady / potencjalni klienci</button>
-    <button data-view="reports"><span>↗</span>Raporty</button>
-  </nav>
-  <div class="nav-section">CRM</div>
-  <nav>
-    <button data-view="pipeline" class="active"><span>⚡</span>Szanse sprzedaży</button>
-    <button data-view="settings"><span>⚙</span>Ustawienia</button>
-  </nav>
+  <div class="nav-scroll">
+    <div class="nav-section">OGÓLNE</div>
+    <nav>
+      <button data-view="dashboard"><span>▦</span>Pulpit</button>
+      <button data-view="users"><span>♙</span>Użytkownicy</button>
+      <button data-view="history"><span>◴</span>Historia zmian</button>
+      <button data-view="timeline"><span>↔</span>Oś czasu</button>
+      <button data-view="board"><span>▱</span>Tablica informacyjna</button>
+      <button data-view="reminders"><span>⏱</span>Przypomnienia</button>
+      <button data-view="files"><span>⌕</span>Pliki</button>
+      <button data-view="emails"><span>✉</span>Wiadomości e-mail</button>
+      <button data-view="snippets"><span>≡</span>Fragmenty tekstu</button>
+    </nav>
+    <div class="nav-section">CRM I FAKTURY</div>
+    <nav>
+      <button data-view="clients"><span>▤</span>Klienci</button>
+      <button data-view="leads"><span>▧</span>Leady / Potencjalni klienci</button>
+      <button data-view="groups"><span>♧</span>Grupy klientów</button>
+      <button data-view="contacts"><span>▣</span>Osoby kontaktowe</button>
+      <button data-view="notes"><span>✎</span>Notatki</button>
+      <button data-view="sequences"><span>↪</span>Sekwencje e-mail</button>
+      <button data-view="automations"><span>ϟ</span>Automatyzacje</button>
+      <button data-view="pipeline" class="active"><span>◉</span>Szanse sprzedaży</button>
+      <button data-view="offers"><span>◇</span>Oferty</button>
+      <button data-view="orders"><span>⌁</span>Zamówienia</button>
+      <button data-view="invoices"><span>▥</span>Faktury</button>
+      <button data-view="proformas"><span>▥</span>Faktury pro forma</button>
+      <button data-view="payments"><span>▱</span>Płatności</button>
+      <button data-view="products"><span>⬡</span>Produkty / Magazyn</button>
+    </nav>
+  </div>
   <div class="aside-note">Biuro rachunkowe • CRM sprzedażowy</div>
 </aside>
 <main>
-  <div class="topbar">
-    <div class="crumb">CRM / Szanse sprzedaży</div>
-    <div class="global-search">⌕ <input placeholder="Szukaj w CRM..."></div>
-    <button class="round">+</button>
-  </div>
-  <header>
-    <div><h1 id="viewTitle">Szanse sprzedaży</h1><p id="subtitle">Zarządzaj leadami i przesuwaj je przez kolejne etapy sprzedaży.</p></div>
-    <button id="addLead" class="primary">+ Nowa szansa</button>
-  </header>
+  <div class="topbar"><div class="crumb" id="crumb">CRM / Szanse sprzedaży</div><div class="global-search">⌕ <input id="globalSearch" placeholder="Szukaj w CRM..."></div><button class="round" id="quickAdd">+</button></div>
+  <header><div><h1 id="viewTitle">Szanse sprzedaży</h1><p id="subtitle">Zarządzaj leadami i przesuwaj je przez kolejne etapy sprzedaży.</p></div><button id="addLead" class="primary">+ Nowa szansa</button></header>
   <section id="app"></section>
 </main></div>
 <div id="modal" class="modal hidden"><div class="modal-card"><div class="modal-head"><h2>Nowy lead</h2><button id="closeModal">×</button></div><form id="leadForm"><div class="grid2"><label>Firma<input name="company" required></label><label>Osoba kontaktowa<input name="contact" required></label><label>E-mail<input name="email" type="email"></label><label>Telefon<input name="phone"></label><label>Źródło<select name="source"><option>Google Ads</option><option>SEO</option><option>Polecenie</option><option>Partner</option><option>Social media</option><option>Formularz WWW</option><option>Telefon</option></select></label><label>Potencjalny MRR (zł)<input name="mrr" type="number" min="0" value="1000"></label><label>Segment<select name="grade"><option>A</option><option>B</option><option>C</option></select></label><label>Termin follow-up<input name="followup" type="date"></label></div><label>Notatka<textarea name="note" rows="3"></textarea></label><button class="primary wide">Zapisz lead</button></form></div></div>
