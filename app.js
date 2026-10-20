@@ -1,3 +1,4 @@
+// deployment refresh
 const stages=['Nowy lead','Do kontaktu','Kontakt wykonany','Kwalifikacja','Oferta','Follow-up','Wygrany','Przegrany'];
 let leads=[],view=localStorage.getItem('brcrm_view')||'dashboard',currentUser=null,pendingOwnerFilter=null,selectedClientId=Number(localStorage.getItem('brcrm_client_id')||0)||null,selectedLeadId=Number(localStorage.getItem('brcrm_lead_id')||0)||null;
 
