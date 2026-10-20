@@ -1,40 +1,63 @@
 import { requireUser } from '../lib/auth.js';
 import { ensureSchema } from '../lib/db.js';
 
-const ENDPOINT='https://wyszukiwarkaregon.stat.gov.pl/wsBIR/UslugaBIRzewnPubl.svc';
-const NS='http://CIS/BIR/PUBL/2014/07';
-const ACTION_LOGIN=NS+'/IUslugaBIRzewnPubl/Zaloguj';
-const ACTION_SEARCH=NS+'/IUslugaBIRzewnPubl/WyszukajDane';
-const ACTION_LOGOUT=NS+'/IUslugaBIRzewnPubl/Wyloguj';
-
-const esc=s=>String(s||'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&apos;'}[m]));
-const unescapeXml=s=>String(s||'').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&apos;/g,"'").replace(/&amp;/g,'&');
-const tag=(xml,name)=>{
-  const m=String(xml||'').match(new RegExp('<(?:\\w+:)?'+name+'(?:\\s[^>]*)?>([\\s\\S]*?)<\\/(?:\\w+:)?'+name+'>','i'));
-  return m?unescapeXml(m[1].trim()):'';
-};
 const digits=v=>String(v||'').replace(/\D/g,'');
 
-async function soap(action,body,sid){
-  const res=await fetch(ENDPOINT,{
-    method:'POST',
-    headers:{
-      'Content-Type':'application/soap+xml; charset=utf-8',
-      'SOAPAction':action,
-      ...(sid?{sid}:{})
-    },
-    body:`<?xml version="1.0" encoding="utf-8"?>
-<s:Envelope xmlns:s="http://www.w3.org/2003/05/soap-envelope" xmlns:a="http://www.w3.org/2005/08/addressing">
-  <s:Header>
-    <a:Action s:mustUnderstand="1">${action}</a:Action>
-    <a:To s:mustUnderstand="1">${ENDPOINT}</a:To>
-  </s:Header>
-  <s:Body>${body}</s:Body>
-</s:Envelope>`
-  });
-  const text=await res.text();
-  if(!res.ok) throw new Error('GUS zwrócił błąd połączenia.');
-  return text;
+async function lookupByNip(nip){
+  const date=new Date().toISOString().slice(0,10);
+  const url=`https://wl-api.mf.gov.pl/api/search/nip/${encodeURIComponent(nip)}?date=${date}`;
+  const response=await fetch(url,{headers:{Accept:'application/json'}});
+  if(response.status===404) return null;
+  if(!response.ok) throw new Error('Ministerstwo Finansów chwilowo nie odpowiada.');
+  const data=await response.json();
+  const subject=data?.result?.subject;
+  if(!subject) return null;
+  return {
+    source:'Ministerstwo Finansów — Wykaz podatników VAT',
+    name:subject.name||'',
+    nip:digits(subject.nip)||nip,
+    krs:digits(subject.krs),
+    regon:digits(subject.regon),
+    status:subject.statusVat||'',
+    address:subject.workingAddress||subject.residenceAddress||''
+  };
+}
+
+function normalizeKrsData(data,krs){
+  const odpis=data?.odpis;
+  const dzial1=odpis?.dane?.dzial1||{};
+  const podmiot=dzial1?.danePodmiotu||{};
+  const ids=podmiot?.identyfikatory||{};
+  const address=dzial1?.siedzibaIAdres||{};
+  const adres=address?.adres||address?.adresSiedziby||{};
+  const city=adres?.miejscowosc||'';
+  const postal=adres?.kodPocztowy||'';
+  const street=[adres?.ulica,adres?.nrDomu,adres?.nrLokalu].filter(Boolean).join(' ');
+  return {
+    source:'Ministerstwo Sprawiedliwości — Otwarte API KRS',
+    name:podmiot?.nazwa||'',
+    nip:digits(ids?.nip),
+    krs:digits(odpis?.naglowekA?.numerKRS)||krs,
+    regon:digits(ids?.regon),
+    legal_form:podmiot?.formaPrawna||'',
+    address:[street,[postal,city].filter(Boolean).join(' ')].filter(Boolean).join(', ')
+  };
+}
+
+async function lookupKrsRegister(krs,register){
+  const url=`https://api-krs.ms.gov.pl/api/krs/OdpisAktualny/${encodeURIComponent(krs)}?rejestr=${register}&format=json`;
+  const response=await fetch(url,{headers:{Accept:'application/json'}});
+  if(response.status===404) return null;
+  if(!response.ok) throw new Error('KRS chwilowo nie odpowiada.');
+  const data=await response.json();
+  return normalizeKrsData(data,krs);
+}
+
+async function lookupByKrs(rawKrs){
+  const krs=digits(rawKrs).padStart(10,'0');
+  let result=await lookupKrsRegister(krs,'P');
+  if(!result) result=await lookupKrsRegister(krs,'S');
+  return result;
 }
 
 export default async function handler(req,res){
@@ -44,51 +67,22 @@ export default async function handler(req,res){
     if(!user)return;
     if(req.method!=='POST')return res.status(405).json({error:'Method not allowed'});
 
-    const key=process.env.GUS_API_KEY;
-    if(!key)return res.status(503).json({error:'Integracja GUS oczekuje na klucz GUS_API_KEY.'});
+    const nip=digits(req.body?.nip);
+    const krs=digits(req.body?.krs);
 
-    const nip=digits(req.body?.nip),krs=digits(req.body?.krs);
     if(!nip&&!krs)return res.status(400).json({error:'Podaj NIP lub KRS.'});
     if(nip&&nip.length!==10)return res.status(400).json({error:'NIP powinien mieć 10 cyfr.'});
 
-    const loginXml=await soap(ACTION_LOGIN,`
-<Zaloguj xmlns="${NS}">
-  <pKluczUzytkownika>${esc(key)}</pKluczUzytkownika>
-</Zaloguj>`);
-    const sid=tag(loginXml,'ZalogujResult');
-    if(!sid)throw new Error('GUS nie zwrócił sesji. Sprawdź klucz API.');
+    const result=nip?await lookupByNip(nip):await lookupByKrs(krs);
+    if(!result)return res.status(404).json({
+      error:nip
+        ? 'Nie znaleziono podmiotu w publicznym Wykazie podatników VAT.'
+        : 'Nie znaleziono podmiotu w KRS.'
+    });
 
-    try{
-      const searchXml=await soap(ACTION_SEARCH,`
-<WyszukajDane xmlns="${NS}">
-  <pParametryWyszukiwania xmlns:d4p1="http://CIS/BIR/PUBL/2014/07/DataContract">
-    ${nip?`<d4p1:Nip>${esc(nip)}</d4p1:Nip>`:''}
-    ${krs?`<d4p1:Krs>${esc(krs)}</d4p1:Krs>`:''}
-  </pParametryWyszukiwania>
-</WyszukajDane>`,sid);
-
-      const raw=tag(searchXml,'WyszukajDaneResult');
-      if(!raw)return res.status(404).json({error:'GUS nie znalazł podmiotu.'});
-
-      const data={
-        name:tag(raw,'Nazwa'),
-        nip:tag(raw,'Nip')||nip,
-        krs:tag(raw,'Krs')||krs,
-        regon:tag(raw,'Regon'),
-        status:tag(raw,'StatusNip'),
-        voivodeship:tag(raw,'Wojewodztwo'),
-        county:tag(raw,'Powiat'),
-        community:tag(raw,'Gmina'),
-        city:tag(raw,'Miejscowosc'),
-        postal_code:tag(raw,'KodPocztowy'),
-        street:tag(raw,'Ulica')
-      };
-      return res.status(200).json(data);
-    }finally{
-      soap(ACTION_LOGOUT,`<Wyloguj xmlns="${NS}"><pIdentyfikatorSesji>${esc(sid)}</pIdentyfikatorSesji></Wyloguj>`,sid).catch(()=>{});
-    }
+    return res.status(200).json(result);
   }catch(e){
     console.error(e);
-    return res.status(500).json({error:e.message||'Nie udało się pobrać danych z GUS.'});
+    return res.status(500).json({error:e.message||'Nie udało się pobrać danych rejestrowych.'});
   }
 }
