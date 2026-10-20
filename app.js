@@ -13,6 +13,7 @@ const labels={
  users:['Użytkownicy','Zespół, role i dostęp do CRM.'],
  history:['Historia zmian','Rejestr zmian w systemie.'],
  reminders:['Przypomnienia','Zadania i terminy wymagające działania.'],
+ meetings:['Spotkania','Kalendarz spotkań z klientami i leadami.'],
  emails:['Wiadomości e-mail','Robocza skrzynka i status korespondencji.'],
  clients:['Klienci','Aktywni klienci biura rachunkowego.'],
  clientDetail:['Karta klienta','Dane księgowe i organizacyjne klienta.'],
@@ -124,6 +125,7 @@ async function render(){
    if(view==='stats')return await statsView();
    if(view==='users')return await usersView();
    if(view==='clients')return await clientsView();
+   if(view==='meetings')return await meetingsView();
    if(view==='clientDetail')return await clientDetailView();
    if(view==='pipeline')return await pipeline();
    if(view==='leads')return await leadTable();
@@ -180,7 +182,7 @@ async function dashboard(){
 function clientRow(l,fav=false){return `<div class="client-row"><span class="avatar-mini">${initials(l.company)}</span><div><b>${l.company}</b><small>${l.contact||l.stage}</small></div><span class="star">${fav?'★':'☆'}</span></div>`}
 function activityRow(r){return `<div class="activity-row"><span class="activity-dot"></span><span class="activity-time">${new Date(r.created_at).toLocaleTimeString('pl-PL',{hour:'2-digit',minute:'2-digit'})}</span><span class="activity-icon">●</span><div><b>${r.title}</b><small>${r.detail||''}</small></div><i>•••</i></div>`}
 function actionTile(action,icon,label,desc,active=false){return `<button class="action-tile ${active?'highlight':''}" data-action="${action}"><span>${icon}</span><div><b>${label}</b><small>${desc}</small></div></button>`}
-function bindDashboardActions(){document.querySelectorAll('[data-view-link]').forEach(b=>b.onclick=()=>{view=b.dataset.viewLink;localStorage.setItem('brcrm_view',view);render()});document.querySelectorAll('[data-action]').forEach(b=>b.onclick=()=>{const a=b.dataset.action;if(a==='new-lead')return $('#modal').classList.remove('hidden');const map={task:'reminders',meeting:'reminders',message:'emails',onboarding:'clients',docs:'notes',offer:'offers',note:'notes',contact:'leads'};view=map[a]||'dashboard';render()})}
+function bindDashboardActions(){document.querySelectorAll('[data-view-link]').forEach(b=>b.onclick=()=>{view=b.dataset.viewLink;localStorage.setItem('brcrm_view',view);render()});document.querySelectorAll('[data-action]').forEach(b=>b.onclick=()=>{const a=b.dataset.action;if(a==='new-lead')return $('#modal').classList.remove('hidden');const map={task:'reminders',meeting:'meetings',message:'emails',onboarding:'clients',docs:'notes',offer:'offers',note:'notes',contact:'leads'};view=map[a]||'dashboard';render()})}
 
 async function statsView(){
  const base=await api('/api/stats'),owners=base.owners.map(x=>x.owner);
@@ -560,6 +562,170 @@ async function leadTable(){
  await loadLeads();app.innerHTML=`<div class="toolbar"><input id="q" placeholder="Szukaj firmy, kontaktu lub opiekuna…"><select id="stageFilter"><option value="">Wszystkie etapy</option>${stages.map(s=>`<option>${s}</option>`).join('')}</select></div><div class="table-wrap"><table><thead><tr><th>Firma</th><th>Kontakt</th><th>Opiekun</th><th>Źródło</th><th>Etap</th><th>Segment</th><th>MRR</th><th>Follow-up</th></tr></thead><tbody id="rows"></tbody></table></div>`;
  const draw=()=>{let q=$('#q').value.toLowerCase(),sf=$('#stageFilter').value,base=currentUser.role==='employee'?leads.filter(l=>l.owner===currentEmployeeName()):leads;$('#rows').innerHTML=base.filter(l=>(!sf||l.stage===sf)&&(`${l.company} ${l.contact} ${l.owner} ${l.email}`.toLowerCase().includes(q))).map(l=>`<tr><td><b>${l.company}</b><br><small>${l.note||''}</small></td><td>${l.contact}<br><small>${l.email||''}</small></td><td>${l.owner||'Nieprzypisany'}</td><td>${l.source}</td><td>${l.stage}</td><td><span class="chip ${l.grade.toLowerCase()}">${l.grade}</span></td><td>${money(l.mrr)}</td><td class="${overdue(l.followup)?'overdue':'ok'}">${l.followup||'—'}</td></tr>`).join('')||'<tr><td colspan="8">Brak leadów.</td></tr>'};
  const q=$('#q');q.oninput=draw;$('#stageFilter').onchange=draw;if(pendingOwnerFilter){q.value=pendingOwnerFilter;pendingOwnerFilter=null}draw();
+}
+
+async function meetingsView(){
+ const safe=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
+ let cursorRaw=localStorage.getItem('brcrm_meeting_month');
+ let cursor=cursorRaw?new Date(cursorRaw+'T12:00:00'):new Date();
+ if(Number.isNaN(cursor.getTime()))cursor=new Date();
+ cursor=new Date(cursor.getFullYear(),cursor.getMonth(),1,12);
+ const clients=await api('/api/clients').catch(()=>[]);
+ await loadLeads().catch(()=>{});
+
+ const monthKey=()=>cursor.getFullYear()+'-'+String(cursor.getMonth()+1).padStart(2,'0');
+ const monthStart=()=>monthKey()+'-01';
+ const monthEnd=()=>new Date(cursor.getFullYear(),cursor.getMonth()+1,0,12).toISOString().slice(0,10);
+ let meetings=await api('/api/meetings?from='+monthStart()+'&to='+monthEnd());
+
+ app.innerHTML=`
+ <div class="calendar-shell">
+   <div class="calendar-top">
+     <div>
+       <h2 id="calendarMonthTitle"></h2>
+       <p>Kliknij dzień, aby zaplanować spotkanie.</p>
+     </div>
+     <div class="calendar-nav">
+       <button type="button" id="calendarToday">Dzisiaj</button>
+       <button type="button" id="calendarPrev" aria-label="Poprzedni miesiąc">←</button>
+       <button type="button" id="calendarNext" aria-label="Następny miesiąc">→</button>
+       <button type="button" class="primary" id="calendarAdd">+ Nowe spotkanie</button>
+     </div>
+   </div>
+   <div class="calendar-weekdays">
+     <span>Pon</span><span>Wt</span><span>Śr</span><span>Czw</span><span>Pt</span><span>Sob</span><span>Nd</span>
+   </div>
+   <div class="calendar-grid" id="calendarGrid"></div>
+ </div>
+
+ <div class="meeting-panel hidden" id="meetingPanel">
+   <div class="meeting-card">
+     <div class="modal-head"><div><h2>Nowe spotkanie</h2><p id="meetingPanelDate"></p></div><button type="button" id="closeMeetingPanel">×</button></div>
+     <form id="meetingForm">
+       <div class="grid2">
+         <label>Data<input type="date" name="meeting_date" required></label>
+         <label>Godzina<input type="time" name="start_time" required value="10:00"></label>
+       </div>
+       <label>Tytuł spotkania<input name="title" required placeholder="np. Omówienie rozliczenia za wrzesień"></label>
+       <div class="grid2">
+         <label>Klient<select name="client_id"><option value="">— bez klienta —</option>${clients.map(x=>`<option value="${x.id}">${safe(x.name)}</option>`).join('')}</select></label>
+         <label>Lead<select name="lead_id"><option value="">— bez leada —</option>${leads.map(x=>`<option value="${x.id}">${safe(x.company)}</option>`).join('')}</select></label>
+       </div>
+       <label>Notatka<textarea name="note" rows="4" placeholder="Temat rozmowy, dokumenty do przygotowania, ustalenia..."></textarea></label>
+       <button class="primary wide">Zapisz spotkanie</button>
+       <div class="auth-error hidden" id="meetingError"></div>
+     </form>
+   </div>
+ </div>
+
+ <div class="meeting-panel hidden" id="meetingDetailPanel">
+   <div class="meeting-card meeting-detail-card">
+     <div class="modal-head"><div><h2 id="meetingDetailTitle">Spotkanie</h2><p id="meetingDetailWhen"></p></div><button type="button" id="closeMeetingDetail">×</button></div>
+     <div class="meeting-detail-body" id="meetingDetailBody"></div>
+     <div class="meeting-detail-actions"><button type="button" class="danger-ghost" id="deleteMeeting">Usuń spotkanie</button></div>
+   </div>
+ </div>`;
+
+ const grid=$('#calendarGrid'),panel=$('#meetingPanel'),form=$('#meetingForm');
+ const monthTitle=$('#calendarMonthTitle');
+ const detailPanel=$('#meetingDetailPanel');
+ let selectedMeetingId=null;
+
+ const monthNames=['styczeń','luty','marzec','kwiecień','maj','czerwiec','lipiec','sierpień','wrzesień','październik','listopad','grudzień'];
+ const pad=n=>String(n).padStart(2,'0');
+ const dateKey=(y,m,d)=>y+'-'+pad(m+1)+'-'+pad(d);
+ const todayKey=()=>{const d=new Date();return dateKey(d.getFullYear(),d.getMonth(),d.getDate())};
+
+ const drawCalendar=()=>{
+   monthTitle.textContent=monthNames[cursor.getMonth()]+' '+cursor.getFullYear();
+   const year=cursor.getFullYear(),month=cursor.getMonth();
+   const first=new Date(year,month,1,12);
+   const days=new Date(year,month+1,0,12).getDate();
+   const offset=(first.getDay()+6)%7;
+   const cells=[];
+   for(let i=0;i<offset;i++)cells.push('<div class="calendar-day is-empty"></div>');
+   for(let day=1;day<=days;day++){
+     const key=dateKey(year,month,day);
+     const dayMeetings=meetings.filter(m=>m.meeting_date===key);
+     cells.push(`<button type="button" class="calendar-day ${key===todayKey()?'is-today':''}" data-calendar-date="${key}">
+       <span class="calendar-day-number">${day}</span>
+       <span class="calendar-events">
+         ${dayMeetings.slice(0,3).map(m=>`<span class="calendar-event" data-meeting-id="${m.id}"><b>${String(m.start_time||'').slice(0,5)}</b> ${safe(m.title)}</span>`).join('')}
+         ${dayMeetings.length>3?`<span class="calendar-more">+${dayMeetings.length-3} więcej</span>`:''}
+       </span>
+     </button>`);
+   }
+   while(cells.length%7)cells.push('<div class="calendar-day is-empty"></div>');
+   grid.innerHTML=cells.join('');
+
+   document.querySelectorAll('[data-calendar-date]').forEach(day=>day.onclick=e=>{
+     const event=e.target.closest('[data-meeting-id]');
+     if(event){e.stopPropagation();openMeetingDetail(Number(event.dataset.meetingId));return}
+     openMeetingForm(day.dataset.calendarDate);
+   });
+   document.querySelectorAll('[data-meeting-id]').forEach(event=>event.onclick=e=>{
+     e.stopPropagation();openMeetingDetail(Number(event.dataset.meetingId));
+   });
+ };
+
+ const reloadMonth=async()=>{
+   localStorage.setItem('brcrm_meeting_month',monthKey());
+   meetings=await api('/api/meetings?from='+monthStart()+'&to='+monthEnd());
+   drawCalendar();
+ };
+
+ const openMeetingForm=date=>{
+   form.reset();
+   form.meeting_date.value=date||todayKey();
+   form.start_time.value='10:00';
+   $('#meetingPanelDate').textContent=new Date((date||todayKey())+'T12:00:00').toLocaleDateString('pl-PL',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+   $('#meetingError').classList.add('hidden');
+   panel.classList.remove('hidden');
+ };
+ const openMeetingDetail=id=>{
+   const m=meetings.find(x=>Number(x.id)===id);if(!m)return;
+   selectedMeetingId=id;
+   $('#meetingDetailTitle').textContent=m.title;
+   $('#meetingDetailWhen').textContent=new Date(m.meeting_date+'T12:00:00').toLocaleDateString('pl-PL',{weekday:'long',day:'numeric',month:'long',year:'numeric'})+' • '+String(m.start_time||'').slice(0,5);
+   $('#meetingDetailBody').innerHTML=`
+     <div><span>Powiązanie</span><b>${safe(m.client_name||m.lead_name||'Bez powiązania')}</b></div>
+     <div><span>Opiekun</span><b>${safe(m.owner_name||'—')}</b></div>
+     ${m.note?`<div class="meeting-detail-note"><span>Notatka</span><p>${safe(m.note).replace(/\n/g,'<br>')}</p></div>`:''}`;
+   detailPanel.classList.remove('hidden');
+ };
+
+ $('#calendarPrev').onclick=async()=>{cursor=new Date(cursor.getFullYear(),cursor.getMonth()-1,1,12);await reloadMonth()};
+ $('#calendarNext').onclick=async()=>{cursor=new Date(cursor.getFullYear(),cursor.getMonth()+1,1,12);await reloadMonth()};
+ $('#calendarToday').onclick=async()=>{const n=new Date();cursor=new Date(n.getFullYear(),n.getMonth(),1,12);await reloadMonth()};
+ $('#calendarAdd').onclick=()=>openMeetingForm(todayKey());
+ $('#closeMeetingPanel').onclick=()=>panel.classList.add('hidden');
+ $('#closeMeetingDetail').onclick=()=>detailPanel.classList.add('hidden');
+
+ form.client_id.onchange=()=>{if(form.client_id.value)form.lead_id.value=''};
+ form.lead_id.onchange=()=>{if(form.lead_id.value)form.client_id.value=''};
+
+ form.onsubmit=async e=>{
+   e.preventDefault();
+   const fd=Object.fromEntries(new FormData(form)),err=$('#meetingError');
+   err.classList.add('hidden');
+   try{
+     await api('/api/meetings',{method:'POST',body:JSON.stringify(fd)});
+     panel.classList.add('hidden');
+     const selected=new Date(fd.meeting_date+'T12:00:00');
+     if(selected.getFullYear()!==cursor.getFullYear()||selected.getMonth()!==cursor.getMonth())cursor=new Date(selected.getFullYear(),selected.getMonth(),1,12);
+     await reloadMonth();
+   }catch(x){err.textContent=x.message;err.classList.remove('hidden')}
+ };
+
+ $('#deleteMeeting').onclick=async()=>{
+   if(!selectedMeetingId||!confirm('Usunąć to spotkanie?'))return;
+   try{
+     await api('/api/meetings?id='+selectedMeetingId,{method:'DELETE'});
+     detailPanel.classList.add('hidden');selectedMeetingId=null;await reloadMonth();
+   }catch(e){alert(e.message)}
+ };
+
+ drawCalendar();
 }
 
 async function genericModule(key){
