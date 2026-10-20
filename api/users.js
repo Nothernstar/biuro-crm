@@ -1,6 +1,7 @@
 import { db, ensureSchema } from '../lib/db.js';
 import { hashPassword, requireUser } from '../lib/auth.js';
 import { apiRateLimit } from '../lib/rate-limit.js';
+import { addHistory } from '../lib/history.js';
 
 export default async function handler(req,res){
   try{
@@ -30,6 +31,7 @@ export default async function handler(req,res){
         VALUES(${email},${fullName},${passwordHash},${role},TRUE,TRUE)
         RETURNING id,email,full_name,role,is_active,must_change_password,created_at,last_login_at
       `;
+      await addHistory(sql,{title:'Dodano użytkownika',detail:rows[0].full_name+' • '+rows[0].role,actor:admin.full_name,status:'user_created'});
       return res.status(201).json(rows[0]);
     }
 
@@ -60,6 +62,7 @@ export default async function handler(req,res){
         RETURNING id,email,full_name,role,is_active,must_change_password,created_at,last_login_at
       `;
       if(!rows[0]) return res.status(404).json({error:'Nie znaleziono użytkownika.'});
+      await addHistory(sql,{title:'Edytowano użytkownika',detail:rows[0].full_name+' • '+rows[0].role+(rows[0].is_active?'':' • nieaktywny'),actor:admin.full_name,status:'user_updated'});
       return res.status(200).json(rows[0]);
     }
 
