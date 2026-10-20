@@ -12,7 +12,7 @@ export default async function handler(req,res){
 
     if(req.method==='GET'){
       const rows=await sql`
-        SELECT id,name,contact_name,first_name,last_name,entity_type,nip,pesel,krs,regon,residence_address,business_address,correspondence_address,taxation_form,vat_status,zus_form,business_start_date,cooperation_start_date,father_name,mother_name,tax_office,contact_email,service_language,settlement_frequency,created_at,updated_at
+        SELECT id,name,contact_name,first_name,last_name,entity_type,nip,pesel,krs,regon,residence_address,business_address,correspondence_address,taxation_form,vat_status,zus_form,business_start_date,cooperation_start_date,father_name,mother_name,tax_office,contact_email,service_language,settlement_frequency,client_status,created_at,updated_at
         FROM clients
         ORDER BY created_at DESC
       `;
@@ -44,6 +44,7 @@ export default async function handler(req,res){
       const contactEmail=String(b.contact_email||'').trim();
       const serviceLanguage=String(b.service_language||'Polski').trim()||'Polski';
       const settlementFrequency=String(b.settlement_frequency||'miesięcznie').trim()||'miesięcznie';
+      const clientStatus=['active','suspended','inactive','payment_hold'].includes(b.client_status)?b.client_status:'active';
 
       if(!name||!entityType||!nip){
         return res.status(400).json({error:'Uzupełnij nazwę, typ podmiotu oraz NIP.'});
@@ -61,7 +62,7 @@ export default async function handler(req,res){
           name,contact_name,first_name,last_name,entity_type,nip,pesel,krs,regon,
           residence_address,business_address,correspondence_address,taxation_form,vat_status,zus_form,
           business_start_date,cooperation_start_date,father_name,mother_name,tax_office,contact_email,
-          service_language,settlement_frequency
+          service_language,settlement_frequency,client_status
         )
         VALUES(
           ${name},
@@ -86,9 +87,10 @@ export default async function handler(req,res){
           ${taxOffice},
           ${contactEmail},
           ${serviceLanguage},
-          ${settlementFrequency}
+          ${settlementFrequency},
+          ${clientStatus}
         )
-        RETURNING id,name,contact_name,first_name,last_name,entity_type,nip,pesel,krs,regon,residence_address,business_address,correspondence_address,taxation_form,vat_status,zus_form,business_start_date,cooperation_start_date,father_name,mother_name,tax_office,contact_email,service_language,settlement_frequency,created_at,updated_at
+        RETURNING id,name,contact_name,first_name,last_name,entity_type,nip,pesel,krs,regon,residence_address,business_address,correspondence_address,taxation_form,vat_status,zus_form,business_start_date,cooperation_start_date,father_name,mother_name,tax_office,contact_email,service_language,settlement_frequency,client_status,created_at,updated_at
       `;
       return res.status(201).json(rows[0]);
     }
@@ -122,6 +124,7 @@ export default async function handler(req,res){
       const contactEmail=String(b.contact_email??current.contact_email??'').trim();
       const serviceLanguage=String(b.service_language??current.service_language??'Polski').trim()||'Polski';
       const settlementFrequency=String(b.settlement_frequency??current.settlement_frequency??'miesięcznie').trim()||'miesięcznie';
+      const clientStatus=b.client_status===undefined?current.client_status:(['active','suspended','inactive','payment_hold'].includes(b.client_status)?b.client_status:current.client_status);
 
       if(entityType==='jdg' && (!firstName||!lastName)) return res.status(400).json({error:'Dla JDG podaj imię i nazwisko.'});
       if(nip.length!==10) return res.status(400).json({error:'NIP powinien mieć 10 cyfr.'});
@@ -156,9 +159,10 @@ export default async function handler(req,res){
           contact_email=${contactEmail},
           service_language=${serviceLanguage},
           settlement_frequency=${settlementFrequency},
+          client_status=${clientStatus},
           updated_at=NOW()
         WHERE id=${id}
-        RETURNING id,name,contact_name,first_name,last_name,entity_type,nip,pesel,krs,regon,residence_address,business_address,correspondence_address,taxation_form,vat_status,zus_form,business_start_date,cooperation_start_date,father_name,mother_name,tax_office,contact_email,service_language,settlement_frequency,created_at,updated_at
+        RETURNING id,name,contact_name,first_name,last_name,entity_type,nip,pesel,krs,regon,residence_address,business_address,correspondence_address,taxation_form,vat_status,zus_form,business_start_date,cooperation_start_date,father_name,mother_name,tax_office,contact_email,service_language,settlement_frequency,client_status,created_at,updated_at
       `;
       return res.status(200).json(rows[0]);
     }
