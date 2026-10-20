@@ -1,6 +1,7 @@
 import { db, ensureSchema } from '../lib/db.js';
 import { requireUser } from '../lib/auth.js';
 import { apiRateLimit } from '../lib/rate-limit.js';
+import { addHistory } from '../lib/history.js';
 
 export default async function handler(req,res){
   try{
@@ -52,16 +53,18 @@ export default async function handler(req,res){
         VALUES(${title},${date}::date,${time}::time,${clientId},${leadId},${String(b.note||'').trim()},${Number(user.id)},${user.full_name})
         RETURNING id,title,meeting_date::text AS meeting_date,start_time::text AS start_time,client_id,lead_id,note,owner_id,owner_name,created_at,updated_at
       `;
+      await addHistory(sql,{title:'Dodano spotkanie',detail:title+' • '+date+' '+time,actor:user.full_name,status:'meeting_created'});
       return res.status(201).json(rows[0]);
     }
 
     if(req.method==='DELETE'){
       const id=Number(req.query.id);
       if(!id)return res.status(400).json({error:'Brak id spotkania.'});
-      const current=(await sql`SELECT id,owner_id FROM meetings WHERE id=${id} LIMIT 1`)[0];
+      const current=(await sql`SELECT id,owner_id,title,meeting_date::text AS meeting_date,start_time::text AS start_time FROM meetings WHERE id=${id} LIMIT 1`)[0];
       if(!current)return res.status(404).json({error:'Nie znaleziono spotkania.'});
       if(ownOnly&&Number(current.owner_id)!==Number(user.id))return res.status(403).json({error:'Brak dostępu do tego spotkania.'});
       await sql`DELETE FROM meetings WHERE id=${id}`;
+      await addHistory(sql,{title:'Usunięto spotkanie',detail:current.title+' • '+current.meeting_date+' '+String(current.start_time||'').slice(0,5),actor:user.full_name,status:'meeting_deleted'});
       return res.status(204).end();
     }
 
