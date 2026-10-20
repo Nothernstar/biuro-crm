@@ -86,6 +86,42 @@ export default async function handler(req,res){
           INSERT INTO lead_events(lead_id,event_type,title,detail,actor_id,actor_name)
           VALUES(${id},'result',${resultTitle},${resultNote},${Number(user.id)},${user.full_name})
         `;
+
+        if(rows[0].lead_result==='won'){
+          let client=(await sql`
+            SELECT id FROM clients WHERE source_lead_id=${id} LIMIT 1
+          `)[0];
+
+          if(!client){
+            const created=await sql`
+              INSERT INTO clients(
+                name,contact_name,entity_type,nip,contact_email,cooperation_start_date,
+                client_status,source_lead_id,profile_complete
+              )
+              VALUES(
+                ${rows[0].company},
+                ${rows[0].contact||null},
+                NULL,
+                NULL,
+                ${rows[0].email||''},
+                CURRENT_DATE,
+                'active',
+                ${id},
+                FALSE
+              )
+              RETURNING id
+            `;
+            client=created[0];
+            await sql`
+              INSERT INTO client_status_events(client_id,from_status,to_status,actor_id,actor_name)
+              VALUES(${client.id},NULL,'active',${Number(user.id)},${user.full_name})
+            `;
+            await sql`
+              INSERT INTO module_items(module,title,detail,status)
+              VALUES('history','Lead został klientem',${rows[0].company},'active')
+            `;
+          }
+        }
       }
       if((b.owner??null)!==null && String(rows[0].owner)!==String(current.owner)){
         await sql`
