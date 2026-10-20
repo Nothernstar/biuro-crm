@@ -118,6 +118,8 @@ async function render(){
  localStorage.setItem('brcrm_view',view);
  document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active',b.dataset.view===view||(view==='clientDetail'&&b.dataset.view==='clients')||(view==='leadDetail'&&b.dataset.view==='leads')));
  const [t,s]=labels[view]||[view,''];title.textContent=t;subtitle.textContent=s;
+ const viewHeader=title.closest('.view-head')||title.parentElement;
+ if(viewHeader)viewHeader.style.display=view==='dashboard'?'none':'';
  crumb.textContent=(['dashboard','stats','users','history','reminders','emails'].includes(view)?'OGÓLNE / ':'CRM / ')+t;
  addLeadBtn.style.display=['dashboard','leads'].includes(view)?'inline-block':'none';
  loading();
