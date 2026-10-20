@@ -51,6 +51,7 @@ export default async function handler(req,res){
       if(!name||!entityType||!nip){
         return res.status(400).json({error:'Uzupełnij nazwę, typ podmiotu oraz NIP.'});
       }
+      if(!entityType) return res.status(400).json({error:'Wybierz typ podmiotu.'});
       if(entityType==='jdg' && (!firstName||!lastName)) return res.status(400).json({error:'Dla JDG podaj imię i nazwisko.'});
       if(nip.length!==10) return res.status(400).json({error:'NIP powinien mieć 10 cyfr.'});
       if(entityType==='jdg' && pesel.length!==11) return res.status(400).json({error:'Dla JDG podaj PESEL składający się z 11 cyfr.'});
@@ -132,6 +133,7 @@ export default async function handler(req,res){
       const settlementFrequency=String(b.settlement_frequency??current.settlement_frequency??'miesięcznie').trim()||'miesięcznie';
       const clientStatus=b.client_status===undefined?current.client_status:(['active','suspended','inactive','payment_hold'].includes(b.client_status)?b.client_status:current.client_status);
 
+      if(!entityType) return res.status(400).json({error:'Wybierz typ podmiotu.'});
       if(entityType==='jdg' && (!firstName||!lastName)) return res.status(400).json({error:'Dla JDG podaj imię i nazwisko.'});
       if(nip.length!==10) return res.status(400).json({error:'NIP powinien mieć 10 cyfr.'});
       if(entityType==='jdg' && pesel.length!==11) return res.status(400).json({error:'Dla JDG podaj PESEL składający się z 11 cyfr.'});
