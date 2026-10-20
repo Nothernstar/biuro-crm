@@ -1,5 +1,35 @@
 <!doctype html><html lang="pl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>BRCRM — CRM biura rachunkowego</title><link rel="stylesheet" href="styles.css"></head><body>
-<div class="shell">
+<div id="authScreen" class="auth-screen">
+  <div class="auth-shell">
+    <div class="auth-brand"><span class="brand-mark">▥</span> BR<span>CRM</span></div>
+    <div class="auth-copy">
+      <span class="auth-kicker">CRM DLA BIURA RACHUNKOWEGO</span>
+      <h1>Sprzedaż i relacje z klientami w jednym miejscu.</h1>
+      <p>Logowanie dla administratorów i pracowników. Administrator tworzy konta, nadaje role i ustawia dostęp do systemu.</p>
+      <div class="auth-points"><span>● Wspólny pipeline sprzedaży</span><span>● Indywidualne statystyki pracowników</span><span>● Bezpieczne konta i role</span></div>
+    </div>
+    <div class="auth-card">
+      <div id="authLoading" class="auth-state">Sprawdzanie systemu…</div>
+      <form id="loginForm" class="auth-form hidden">
+        <div class="auth-form-head"><h2>Zaloguj się</h2><p>Użyj danych utworzonych przez administratora.</p></div>
+        <label>E-mail<input name="email" type="email" autocomplete="username" required></label>
+        <label>Hasło<input name="password" type="password" autocomplete="current-password" required></label>
+        <button class="auth-submit">Zaloguj się</button>
+        <div id="loginError" class="auth-error hidden"></div>
+      </form>
+      <form id="setupForm" class="auth-form hidden">
+        <div class="auth-form-head"><span class="auth-badge">Pierwsze uruchomienie</span><h2>Utwórz administratora</h2><p>To konto będzie zarządzać użytkownikami i dostępami.</p></div>
+        <label>Imię i nazwisko<input name="full_name" required autocomplete="name"></label>
+        <label>E-mail<input name="email" type="email" required autocomplete="username"></label>
+        <label>Hasło<input name="password" type="password" minlength="8" required autocomplete="new-password"></label>
+        <label>Powtórz hasło<input name="password_confirm" type="password" minlength="8" required autocomplete="new-password"></label>
+        <button class="auth-submit">Utwórz konto administratora</button>
+        <div id="setupError" class="auth-error hidden"></div>
+      </form>
+    </div>
+  </div>
+</div>
+<div class="shell auth-hidden" id="appShell">
 <aside>
   <div class="brand"><span class="brand-mark">▥</span> BR<span>CRM</span></div>
   <div class="nav-scroll">
@@ -7,7 +37,7 @@
     <nav>
       <button data-view="dashboard" class="active"><span>⌂</span>Pulpit</button>
       <button data-view="stats"><span>◌</span>Statystyki</button>
-      <button data-view="users"><span>♙</span>Użytkownicy</button>
+      <button data-view="users" data-admin-only><span>♙</span>Użytkownicy</button>
       <button data-view="history"><span>◴</span>Historia zmian</button>
       <button data-view="reminders"><span>◫</span>Przypomnienia</button>
       <button data-view="emails"><span>✉</span>Wiadomości e-mail</button>
@@ -50,11 +80,11 @@
       </div>
     </div>
     <div class="employee-wrap">
-      <button class="user-chip" id="employeeBtn" aria-label="Panel pracownika"><span>AK</span><div><b>Anna Kowalczyk</b><small>Pracownik</small></div><i>⌄</i></button>
+      <button class="user-chip" id="employeeBtn" aria-label="Panel pracownika"><span id="userInitials">--</span><div><b id="userName">Użytkownik</b><small id="userRole">Pracownik</small></div><i>⌄</i></button>
       <div class="employee-panel hidden" id="employeePanel">
         <div class="employee-head">
-          <span class="employee-avatar">AK</span>
-          <div><b>Anna Kowalczyk</b><small>Pracownik • sprzedaż</small></div>
+          <span class="employee-avatar" id="employeeAvatar">--</span>
+          <div><b id="employeeName">Użytkownik</b><small id="employeeRole">Pracownik</small></div>
         </div>
         <div class="employee-stats" id="employeeStats"></div>
         <div class="employee-section">
@@ -66,6 +96,7 @@
           <button data-employee-action="stats">↗ Moje statystyki</button>
           <button data-employee-action="reminders">◫ Przypomnienia</button>
         </div>
+        <button class="logout-btn" id="logoutBtn">Wyloguj się</button>
       </div>
     </div>
   </div>
