@@ -223,6 +223,13 @@ async function clientsView(){
        <option value="company">Spółka</option>
        <option value="foundation">Fundacja</option>
      </select>
+     <select id="clientStatusFilter" class="client-type-filter">
+       <option value="">Wszystkie statusy</option>
+       <option value="active">Aktywny</option>
+       <option value="suspended">Zawieszony</option>
+       <option value="inactive">Nieobsługiwany</option>
+       <option value="payment_hold">Wstrzymany – zaległości płatnicze</option>
+     </select>
      <select id="clientSort" class="client-type-filter">
        <option value="asc">Nazwa A–Z</option>
        <option value="desc">Nazwa Z–A</option>
@@ -232,7 +239,7 @@ async function clientsView(){
  </div>
  <div class="clients-list-wrap">
    <div class="clients-list-head">
-     <span>Klient</span><span>Forma prawna</span><span>Imię</span><span>Nazwisko</span><span>NIP</span><span>REGON</span><span>PESEL / KRS</span><span>Akcje</span>
+     <span>Klient</span><span>Status</span><span>Forma prawna</span><span>Imię</span><span>Nazwisko</span><span>NIP</span><span>REGON</span><span>PESEL / KRS</span><span>Akcje</span>
    </div>
    <div class="clients-list" id="clientsGrid"></div>
  </div>
@@ -242,6 +249,14 @@ async function clientsView(){
      <form id="clientForm">
        <input type="hidden" name="id">
        <label>Nazwa firmy / działalności<input name="name" required placeholder="np. ABC Consulting"></label>
+       <label>Status klienta
+         <select name="client_status">
+           <option value="active">Aktywny</option>
+           <option value="suspended">Zawieszony</option>
+           <option value="inactive">Nieobsługiwany</option>
+           <option value="payment_hold">Wstrzymany – zaległości płatnicze</option>
+         </select>
+       </label>
        <label>Typ podmiotu
          <div class="entity-switch" id="entitySwitch">
            <button type="button" data-entity="jdg" class="active">JDG</button>
@@ -264,16 +279,18 @@ async function clientsView(){
      </form>
    </div>
  </div>`;
- const grid=$('#clientsGrid'),panel=$('#clientFormPanel'),form=$('#clientForm'),q=$('#clientSearch'),typeFilter=$('#clientTypeFilter'),sortSelect=$('#clientSort');
+ const grid=$('#clientsGrid'),panel=$('#clientFormPanel'),form=$('#clientForm'),q=$('#clientSearch'),typeFilter=$('#clientTypeFilter'),statusFilter=$('#clientStatusFilter'),sortSelect=$('#clientSort');
  const typeLabel=t=>t==='jdg'?'JDG':t==='company'?'Spółka':'Fundacja';
+ const statusLabel=s=>s==='suspended'?'Zawieszony':s==='inactive'?'Nieobsługiwany':s==='payment_hold'?'Wstrzymany – płatności':'Aktywny';
  const draw=()=>{
-   const term=q.value.toLowerCase().trim(),entity=typeFilter.value,sort=sortSelect.value;
+   const term=q.value.toLowerCase().trim(),entity=typeFilter.value,status=statusFilter.value,sort=sortSelect.value;
    const filtered=clients
-     .filter(x=>(!entity||x.entity_type===entity)&&(x.name+' '+(x.first_name||'')+' '+(x.last_name||'')+' '+(x.contact_name||'')+' '+x.nip+' '+(x.regon||'')+' '+(x.krs||'')+' '+(x.pesel||'')).toLowerCase().includes(term))
+     .filter(x=>(!entity||x.entity_type===entity)&&(!status||x.client_status===status)&&(x.name+' '+(x.first_name||'')+' '+(x.last_name||'')+' '+(x.contact_name||'')+' '+x.nip+' '+(x.regon||'')+' '+(x.krs||'')+' '+(x.pesel||'')).toLowerCase().includes(term))
      .sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''),'pl',{sensitivity:'base'})*(sort==='desc'?-1:1));
    grid.innerHTML=filtered.length?filtered.map(x=>`
      <div class="client-list-row">
        <div class="client-list-name"><span class="client-avatar">${initials(x.name)}</span><button class="client-name-link open-client" data-id="${x.id}" type="button">${x.name}</button></div>
+       <div><span class="client-status-pill status-${x.client_status||'active'}">${statusLabel(x.client_status)}</span></div>
        <div><span class="entity-pill">${typeLabel(x.entity_type)}</span></div>
        <div>${x.entity_type==='jdg'?(x.first_name||'—'):'—'}</div>
        <div>${x.entity_type==='jdg'?(x.last_name||'—'):'—'}</div>
@@ -301,9 +318,9 @@ async function clientsView(){
    if(!isJdg){form.first_name.value='';form.last_name.value='';form.pesel.value=''}
    if(isJdg)form.krs.value='';
  };
- const openNew=()=>{form.reset();form.id.value='';setEntity('jdg');$('#gusStatus').classList.add('hidden');$('#clientFormTitle').textContent='Nowy klient';panel.classList.remove('hidden')};
- const openEdit=id=>{const x=clients.find(v=>Number(v.id)===id);if(!x)return;form.id.value=x.id;form.name.value=x.name;form.nip.value=x.nip||'';form.regon.value=x.regon||'';form.first_name.value=x.first_name||'';form.last_name.value=x.last_name||'';form.pesel.value=x.pesel||'';form.krs.value=x.krs||'';setEntity(x.entity_type);$('#gusStatus').classList.add('hidden');$('#clientFormTitle').textContent='Edytuj klienta';panel.classList.remove('hidden')};
- $('#openClientForm').onclick=openNew;$('#closeClientForm').onclick=()=>panel.classList.add('hidden');q.oninput=draw;typeFilter.onchange=draw;sortSelect.onchange=draw;
+ const openNew=()=>{form.reset();form.id.value='';form.client_status.value='active';setEntity('jdg');$('#gusStatus').classList.add('hidden');$('#clientFormTitle').textContent='Nowy klient';panel.classList.remove('hidden')};
+ const openEdit=id=>{const x=clients.find(v=>Number(v.id)===id);if(!x)return;form.id.value=x.id;form.name.value=x.name;form.nip.value=x.nip||'';form.regon.value=x.regon||'';form.first_name.value=x.first_name||'';form.last_name.value=x.last_name||'';form.pesel.value=x.pesel||'';form.krs.value=x.krs||'';form.client_status.value=x.client_status||'active';setEntity(x.entity_type);$('#gusStatus').classList.add('hidden');$('#clientFormTitle').textContent='Edytuj klienta';panel.classList.remove('hidden')};
+ $('#openClientForm').onclick=openNew;$('#closeClientForm').onclick=()=>panel.classList.add('hidden');q.oninput=draw;typeFilter.onchange=draw;statusFilter.onchange=draw;sortSelect.onchange=draw;
  document.querySelectorAll('[data-entity]').forEach(b=>b.onclick=()=>setEntity(b.dataset.entity));
  document.querySelectorAll('[data-gus]').forEach(b=>b.onclick=async()=>{
    const kind=b.dataset.gus,val=String(form[kind].value||'').replace(/\D/g,''),status=$('#gusStatus');
@@ -325,7 +342,7 @@ async function clientsView(){
    }catch(e){status.textContent=e.message;status.className='gus-status error'}
    finally{b.disabled=false;b.textContent='Pobierz dane'}
  });
- form.onsubmit=async e=>{e.preventDefault();const fd=Object.fromEntries(new FormData(form)),err=$('#clientFormError');err.classList.add('hidden');try{const payload={id:fd.id?Number(fd.id):undefined,name:fd.name,first_name:fd.entity_type==='jdg'?fd.first_name:'',last_name:fd.entity_type==='jdg'?fd.last_name:'',entity_type:fd.entity_type,nip:fd.nip,regon:fd.regon,pesel:fd.entity_type==='jdg'?fd.pesel:'',krs:fd.entity_type==='jdg'?'':fd.krs};if(fd.id)await api('/api/clients',{method:'PATCH',body:JSON.stringify(payload)});else await api('/api/clients',{method:'POST',body:JSON.stringify(payload)});panel.classList.add('hidden');await clientsView()}catch(x){err.textContent=x.message;err.classList.remove('hidden')}};
+ form.onsubmit=async e=>{e.preventDefault();const fd=Object.fromEntries(new FormData(form)),err=$('#clientFormError');err.classList.add('hidden');try{const payload={id:fd.id?Number(fd.id):undefined,name:fd.name,first_name:fd.entity_type==='jdg'?fd.first_name:'',last_name:fd.entity_type==='jdg'?fd.last_name:'',entity_type:fd.entity_type,client_status:fd.client_status,nip:fd.nip,regon:fd.regon,pesel:fd.entity_type==='jdg'?fd.pesel:'',krs:fd.entity_type==='jdg'?'':fd.krs};if(fd.id)await api('/api/clients',{method:'PATCH',body:JSON.stringify(payload)});else await api('/api/clients',{method:'POST',body:JSON.stringify(payload)});panel.classList.add('hidden');await clientsView()}catch(x){err.textContent=x.message;err.classList.remove('hidden')}};
  setEntity('jdg');draw();
 }
 
@@ -343,6 +360,7 @@ async function clientDetailView(){
  }
  const isJdg=x.entity_type==='jdg';
  const typeLabel=t=>t==='jdg'?'JDG':t==='company'?'Spółka':'Fundacja';
+ const statusLabel=s=>s==='suspended'?'Zawieszony':s==='inactive'?'Nieobsługiwany':s==='payment_hold'?'Wstrzymany – zaległości płatnicze':'Aktywny';
  const safe=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
  let notes=initialNotes;
  let activeTab=localStorage.getItem('brcrm_client_tab')||'tax';
@@ -357,7 +375,7 @@ async function clientDetailView(){
    <button class="back-client-btn" id="backToClients">← Wróć do klientów</button>
    <div class="client-profile-title">
      <span class="client-profile-avatar">${initials(x.name)}</span>
-     <div><h2>${safe(x.name)}</h2><div class="client-profile-meta"><span class="entity-pill">${typeLabel(x.entity_type)}</span><span>NIP: <b>${safe(x.nip||'—')}</b></span><span>REGON: <b>${safe(x.regon||'—')}</b></span>${!isJdg?`<span>KRS: <b>${safe(x.krs||'—')}</b></span>`:''}</div></div>
+     <div><h2>${safe(x.name)}</h2><div class="client-profile-meta"><span class="client-status-pill status-${x.client_status||'active'}">${statusLabel(x.client_status)}</span><span class="entity-pill">${typeLabel(x.entity_type)}</span><span>NIP: <b>${safe(x.nip||'—')}</b></span><span>REGON: <b>${safe(x.regon||'—')}</b></span>${!isJdg?`<span>KRS: <b>${safe(x.krs||'—')}</b></span>`:''}</div></div>
    </div>
  </div>
 
@@ -371,6 +389,14 @@ async function clientDetailView(){
    <section class="profile-section">
      <div class="profile-section-head"><div><h3>Dane kontaktowe i adresowe</h3><p>Adresy wykorzystywane w obsłudze księgowej i korespondencji.</p></div></div>
      <div class="profile-grid">
+       <label>Status klienta
+         <select name="client_status">
+           <option value="active" ${(x.client_status||'active')==='active'?'selected':''}>Aktywny</option>
+           <option value="suspended" ${x.client_status==='suspended'?'selected':''}>Zawieszony</option>
+           <option value="inactive" ${x.client_status==='inactive'?'selected':''}>Nieobsługiwany</option>
+           <option value="payment_hold" ${x.client_status==='payment_hold'?'selected':''}>Wstrzymany – zaległości płatnicze</option>
+         </select>
+       </label>
        <label class="${isJdg?'':'hidden'}">Adres zamieszkania<textarea name="residence_address" rows="3" placeholder="Ulica, numer, kod pocztowy, miejscowość">${safe(x.residence_address||'')}</textarea></label>
        <label>Adres działalności<textarea name="business_address" rows="3" placeholder="Ulica, numer, kod pocztowy, miejscowość">${safe(x.business_address||'')}</textarea></label>
        <label>Adres korespondencyjny<textarea name="correspondence_address" rows="3" placeholder="Jeżeli inny niż adres działalności">${safe(x.correspondence_address||'')}</textarea></label>
@@ -485,7 +511,8 @@ async function clientDetailView(){
        tax_office:fd.tax_office||'',
        contact_email:fd.contact_email||'',
        service_language:fd.service_language||'Polski',
-       settlement_frequency:fd.settlement_frequency||'miesięcznie'
+       settlement_frequency:fd.settlement_frequency||'miesięcznie',
+       client_status:fd.client_status||'active'
      })});
      status.textContent='Zapisano ✓';
      setTimeout(()=>{if($('#profileSaveStatus'))$('#profileSaveStatus').textContent=''},2200);
