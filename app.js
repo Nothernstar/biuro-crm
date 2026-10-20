@@ -121,6 +121,7 @@ async function render(){
    if(view==='dashboard')return await dashboard();
    if(view==='stats')return await statsView();
    if(view==='users')return await usersView();
+   if(view==='clients')return await clientsView();
    if(view==='pipeline')return await pipeline();
    if(view==='leads')return await leadTable();
    return await genericModule(view);
@@ -205,6 +206,63 @@ async function usersView(){
  $('#copyTempPassword').onclick=async()=>{try{await navigator.clipboard.writeText($('#tempPasswordValue').textContent);$('#copyTempPassword').textContent='Skopiowano ✓'}catch{$('#copyTempPassword').textContent='Zaznacz i skopiuj'}};
  $('#closeTempPassword').onclick=async()=>{$('#tempPasswordValue').textContent='';$('#tempPasswordPanel').classList.add('hidden');await render()};
  form.onsubmit=async e=>{e.preventDefault();const fd=Object.fromEntries(new FormData(form)),err=$('#userFormError');err.classList.add('hidden');try{const tempPassword=fd.password||'';if(fd.id){const updated=await api('/api/users',{method:'PATCH',body:JSON.stringify({id:Number(fd.id),full_name:fd.full_name,email:fd.email,role:fd.role,is_active:form.is_active.checked,password:tempPassword||undefined})});if(Number(currentUser.id)===Number(updated.id)){currentUser={...currentUser,...updated};applyCurrentUser()}if(tempPassword){await revealPassword(tempPassword);return}}else{await api('/api/users',{method:'POST',body:JSON.stringify({full_name:fd.full_name,email:fd.email,role:fd.role,password:tempPassword})});await revealPassword(tempPassword);return}panel.classList.add('hidden');await render()}catch(x){err.textContent=x.message;err.classList.remove('hidden')}};
+}
+
+async function clientsView(){
+ const clients=await api('/api/clients');
+ app.innerHTML=`
+ <div class="clients-toolbar">
+   <div class="clients-search"><span>⌕</span><input id="clientSearch" placeholder="Szukaj po nazwie, osobie, NIP lub KRS..."></div>
+   <button class="primary" id="openClientForm">+ Dodaj klienta</button>
+ </div>
+ <div class="clients-grid" id="clientsGrid"></div>
+ <div class="client-form-panel hidden" id="clientFormPanel">
+   <div class="client-form-card">
+     <div class="modal-head"><div><h2 id="clientFormTitle">Nowy klient</h2><p>Uzupełnij dane klienta lub pobierz dane rejestrowe z GUS.</p></div><button id="closeClientForm">×</button></div>
+     <form id="clientForm">
+       <input type="hidden" name="id">
+       <div class="grid2">
+         <label>Nazwa firmy / działalności<input name="name" required placeholder="np. ABC Consulting"></label>
+         <label>Imię i nazwisko<input name="contact_name" required placeholder="np. Jan Kowalski"></label>
+       </div>
+       <label>Typ podmiotu
+         <div class="entity-switch" id="entitySwitch">
+           <button type="button" data-entity="jdg" class="active">JDG</button>
+           <button type="button" data-entity="company">Spółka</button>
+           <button type="button" data-entity="foundation">Fundacja</button>
+         </div>
+         <input type="hidden" name="entity_type" value="jdg">
+       </label>
+       <div class="grid2">
+         <label>NIP<div class="lookup-field"><input name="nip" inputmode="numeric" maxlength="10" placeholder="10 cyfr" required><button type="button" class="gus-btn" data-gus="nip">Pobierz z GUS</button></div></label>
+         <label id="peselField">PESEL<input name="pesel" inputmode="numeric" maxlength="11" placeholder="11 cyfr"></label>
+         <label id="krsField" class="hidden">KRS<div class="lookup-field"><input name="krs" inputmode="numeric" maxlength="10" placeholder="Numer KRS"><button type="button" class="gus-btn" data-gus="krs">Pobierz z GUS</button></div></label>
+       </div>
+       <div class="gus-status hidden" id="gusStatus"></div>
+       <button class="primary wide">Zapisz klienta</button>
+       <div class="auth-error hidden" id="clientFormError"></div>
+     </form>
+   </div>
+ </div>`;
+ const grid=$('#clientsGrid'),panel=$('#clientFormPanel'),form=$('#clientForm'),q=$('#clientSearch');
+ const typeLabel=t=>t==='jdg'?'JDG':t==='company'?'Spółka':'Fundacja';
+ const draw=()=>{const term=q.value.toLowerCase().trim();const filtered=clients.filter(x=>(x.name+' '+x.contact_name+' '+x.nip+' '+(x.krs||'')+' '+(x.pesel||'')).toLowerCase().includes(term));grid.innerHTML=filtered.length?filtered.map(x=>`
+   <article class="client-card">
+     <div class="client-card-top"><span class="client-avatar">${initials(x.name)}</span><div><h3>${x.name}</h3><p>${x.contact_name}</p></div><span class="entity-pill">${typeLabel(x.entity_type)}</span></div>
+     <div class="client-identifiers"><div><span>NIP</span><b>${x.nip}</b></div>${x.entity_type==='jdg'? `<div><span>PESEL</span><b>${x.pesel||'—'}</b></div>`:`<div><span>KRS</span><b>${x.krs||'—'}</b></div>`}</div>
+     <div class="client-card-actions"><button class="secondary edit-client" data-id="${x.id}">Edytuj</button>${currentUser.role!=='employee'? `<button class="danger-ghost delete-client" data-id="${x.id}">Usuń</button>`:''}</div>
+   </article>`).join(''):'<div class="empty card clients-empty">Brak klientów pasujących do wyszukiwania.</div>';
+   document.querySelectorAll('.edit-client').forEach(b=>b.onclick=()=>openEdit(Number(b.dataset.id)));
+   document.querySelectorAll('.delete-client').forEach(b=>b.onclick=async()=>{if(!confirm('Usunąć tego klienta?'))return;await api('/api/clients?id='+b.dataset.id,{method:'DELETE'});await clientsView()});
+ };
+ const setEntity=type=>{form.entity_type.value=type;document.querySelectorAll('[data-entity]').forEach(b=>b.classList.toggle('active',b.dataset.entity===type));$('#peselField').classList.toggle('hidden',type!=='jdg');$('#krsField').classList.toggle('hidden',type==='jdg');form.pesel.required=type==='jdg';form.krs.required=type!=='jdg'};
+ const openNew=()=>{form.reset();form.id.value='';setEntity('jdg');$('#gusStatus').classList.add('hidden');$('#clientFormTitle').textContent='Nowy klient';panel.classList.remove('hidden')};
+ const openEdit=id=>{const x=clients.find(v=>Number(v.id)===id);if(!x)return;form.id.value=x.id;form.name.value=x.name;form.contact_name.value=x.contact_name;form.nip.value=x.nip||'';form.pesel.value=x.pesel||'';form.krs.value=x.krs||'';setEntity(x.entity_type);$('#gusStatus').classList.add('hidden');$('#clientFormTitle').textContent='Edytuj klienta';panel.classList.remove('hidden')};
+ $('#openClientForm').onclick=openNew;$('#closeClientForm').onclick=()=>panel.classList.add('hidden');q.oninput=draw;
+ document.querySelectorAll('[data-entity]').forEach(b=>b.onclick=()=>setEntity(b.dataset.entity));
+ document.querySelectorAll('[data-gus]').forEach(b=>b.onclick=async()=>{const kind=b.dataset.gus,val=String(form[kind].value||'').replace(/\D/g,''),status=$('#gusStatus');if(!val){status.textContent='Najpierw wpisz '+kind.toUpperCase()+'.';status.className='gus-status error';return}b.disabled=true;b.textContent='Pobieram…';status.classList.add('hidden');try{const data=await api('/api/gus',{method:'POST',body:JSON.stringify({[kind]:val})});if(data.name)form.name.value=data.name;if(data.nip)form.nip.value=data.nip;if(data.krs)form.krs.value=data.krs;status.textContent='Dane pobrane z GUS'+(data.regon?' • REGON '+data.regon:'');status.className='gus-status success'}catch(e){status.textContent=e.message;status.className='gus-status error'}finally{b.disabled=false;b.textContent='Pobierz z GUS'}});
+ form.onsubmit=async e=>{e.preventDefault();const fd=Object.fromEntries(new FormData(form)),err=$('#clientFormError');err.classList.add('hidden');try{const payload={id:fd.id?Number(fd.id):undefined,name:fd.name,contact_name:fd.contact_name,entity_type:fd.entity_type,nip:fd.nip,pesel:fd.entity_type==='jdg'?fd.pesel:'',krs:fd.entity_type==='jdg'?'':fd.krs};if(fd.id)await api('/api/clients',{method:'PATCH',body:JSON.stringify(payload)});else await api('/api/clients',{method:'POST',body:JSON.stringify(payload)});panel.classList.add('hidden');await clientsView()}catch(x){err.textContent=x.message;err.classList.remove('hidden')}};
+ setEntity('jdg');draw();
 }
 
 async function pipeline(){
