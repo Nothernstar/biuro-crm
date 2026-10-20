@@ -172,7 +172,6 @@ async function dashboard(){
   <div class="kpi-card pink"><div class="kpi-icon">♧</div><div><span>Leady</span><b>${stats.totals.total}</b><small>w bazie</small></div></div>
   <div class="kpi-card peach"><div class="kpi-icon">▣</div><div><span>Follow-upy dziś</span><b>${followups}</b><small>na dziś</small></div></div>
   <div class="kpi-card blue"><div class="kpi-icon">◇</div><div><span>Oferty oczekujące</span><b>${offers}</b><small>w pipeline</small></div></div>
-  <div class="kpi-card green"><div class="kpi-icon">↗</div><div><span>Wygrany MRR</span><b>${money(stats.totals.won_mrr)}</b><small>wygrane szanse</small></div></div>
  </div>
  <div class="bottom-grid">
   <div class="activity-card"><div class="side-title"><h3>Historia aktywności</h3><button data-view-link="history">Zobacz wszystkie →</button></div>${hist.slice(0,5).map(activityRow).join('')||'<div class="mini-empty">Brak aktywności.</div>'}</div>
