@@ -1062,9 +1062,29 @@ async function remindersView(){
 }
 
 async function genericModule(key){
- const rows=await api('/api/modules?module='+encodeURIComponent(key));app.innerHTML=`<div class="module-actions"><button class="secondary" id="addModule">+ Dodaj</button><input id="moduleSearch" placeholder="Szukaj..."></div><div class="module-grid" id="moduleGrid"></div>`;
- const draw=()=>{const q=$('#moduleSearch').value.toLowerCase();$('#moduleGrid').innerHTML=rows.filter(r=>(r.title+' '+r.detail+' '+r.status).toLowerCase().includes(q)).map(r=>`<div class="module-card"><div class="module-icon">#</div><div><b>${r.title}</b><span>${r.detail||r.status||''}</span></div><button class="delete-item" data-id="${r.id}">×</button></div>`).join('')||'<div class="empty card">Brak danych.</div>';document.querySelectorAll('.delete-item').forEach(b=>b.onclick=async()=>{await api('/api/modules?module='+encodeURIComponent(key)+'&id='+b.dataset.id,{method:'DELETE'});await render()})};
- $('#moduleSearch').oninput=draw;$('#addModule').onclick=async()=>{const t=prompt('Nazwa / tytuł:');if(!t)return;const d=prompt('Opis / status:')||'';await api('/api/modules',{method:'POST',body:JSON.stringify({module:key,title:t,detail:d})});await render()};draw();
+ const rows=await api('/api/modules?module='+encodeURIComponent(key));
+ const isHistory=key==='history';
+ app.innerHTML=`<div class="module-actions"><button class="secondary" id="addModule">+ Dodaj</button><input id="moduleSearch" placeholder="Szukaj..."></div><div class="${isHistory?'history-list':'module-grid'}" id="moduleGrid"></div>`;
+ const draw=()=>{
+   const q=$('#moduleSearch').value.toLowerCase();
+   const filtered=rows.filter(r=>(r.title+' '+r.detail+' '+r.status).toLowerCase().includes(q));
+   $('#moduleGrid').innerHTML=filtered.map(r=>isHistory?`
+     <div class="history-list-row">
+       <div class="history-list-icon">#</div>
+       <div class="history-list-content">
+         <b>${r.title}</b>
+         <span>${r.detail||r.status||''}</span>
+       </div>
+       <time>${new Date(r.created_at).toLocaleString('pl-PL',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})}</time>
+       <button class="delete-item" data-id="${r.id}">×</button>
+     </div>`
+     :`<div class="module-card"><div class="module-icon">#</div><div><b>${r.title}</b><span>${r.detail||r.status||''}</span></div><button class="delete-item" data-id="${r.id}">×</button></div>`
+   ).join('')||'<div class="empty card">Brak danych.</div>';
+   document.querySelectorAll('.delete-item').forEach(b=>b.onclick=async()=>{await api('/api/modules?module='+encodeURIComponent(key)+'&id='+b.dataset.id,{method:'DELETE'});await render()});
+ };
+ $('#moduleSearch').oninput=draw;
+ $('#addModule').onclick=async()=>{const t=prompt('Nazwa / tytuł:');if(!t)return;const d=prompt('Opis / status:')||'';await api('/api/modules',{method:'POST',body:JSON.stringify({module:key,title:t,detail:d})});await render()};
+ draw();
 }
 
 function notificationKey(n){return [n.type,n.id||'',n.title,n.date||''].join(':')}
