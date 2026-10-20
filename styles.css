@@ -1036,3 +1036,49 @@ button.reminder-row:hover{background:#fff}
 @media(max-width:650px){
   .stats-kpis-3,.client-status-kpis{grid-template-columns:1fr}
 }
+
+/* Lead list actions */
+.leads-list-head,.lead-list-row{
+  grid-template-columns:minmax(300px,2fr) 120px 100px 130px 220px 150px 160px 150px;
+  min-width:1230px;
+}
+.leads-list-head>span:last-child{text-align:center}
+.lead-row-actions{
+  display:flex;
+  justify-content:center;
+  gap:7px;
+}
+.lead-row-actions .secondary,
+.lead-row-actions .danger-ghost{
+  min-width:64px;
+  padding:7px 10px;
+  font-size:10px;
+  white-space:nowrap;
+}
+.lead-edit-panel{
+  position:fixed;
+  inset:0;
+  z-index:80;
+  background:rgba(16,24,40,.34);
+  backdrop-filter:blur(3px);
+  display:grid;
+  place-items:center;
+  padding:24px;
+}
+.lead-edit-panel.hidden{display:none}
+.lead-edit-card{
+  width:min(620px,100%);
+  max-height:90vh;
+  overflow:auto;
+  background:#fff;
+  border:1px solid var(--line);
+  border-radius:18px;
+  padding:20px;
+  box-shadow:0 24px 70px rgba(16,24,40,.18);
+}
+.lead-edit-actions{
+  display:flex;
+  justify-content:flex-end;
+  gap:9px;
+  margin-top:18px;
+}
