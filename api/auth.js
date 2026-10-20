@@ -1,8 +1,10 @@
 import { db, ensureSchema } from '../lib/db.js';
 import { hashPassword, verifyPassword, setSession, clearSession, getCurrentUser } from '../lib/auth.js';
+import { authRateLimit } from '../lib/rate-limit.js';
 
 export default async function handler(req,res){
   try{
+    if(req.method==='POST' && !authRateLimit(req,res)) return;
     await ensureSchema();
     const sql=db();
 
@@ -10,7 +12,7 @@ export default async function handler(req,res){
       const countRows=await sql`SELECT COUNT(*)::int AS count FROM app_users`;
       const user=await getCurrentUser(req).catch(()=>null);
       return res.status(200).json({setup_required:countRows[0].count===0,user:user?{
-        id:Number(user.id),email:user.email,full_name:user.full_name,role:user.role,must_change_password:Boolean(user.must_change_password),must_change_password:Boolean(user.must_change_password)
+        id:Number(user.id),email:user.email,full_name:user.full_name,role:user.role,must_change_password:Boolean(user.must_change_password)
       }:null});
     }
 
@@ -36,7 +38,7 @@ export default async function handler(req,res){
     if(b.action==='login'){
       const email=String(b.email||'').trim().toLowerCase();
       const rows=await sql`
-        SELECT id,email,full_name,password_hash,role,is_active,must_change_password,must_change_password
+        SELECT id,email,full_name,password_hash,role,is_active,must_change_password
         FROM app_users WHERE lower(email)=${email} LIMIT 1
       `;
       const user=rows[0];
