@@ -406,3 +406,26 @@
   min-width:64px;
   text-align:center;
 }
+
+/* Client profile tabs + settlement notes */
+.client-profile-tabs{display:flex;gap:8px;margin:0 0 14px 0}
+.client-tab{border:1px solid var(--line);background:#fff;color:#596173;border-radius:11px;padding:10px 14px;font-size:11px;font-weight:800;cursor:pointer}
+.client-tab span{display:inline-grid;place-items:center;min-width:20px;height:20px;margin-left:6px;padding:0 6px;border-radius:999px;background:#f1f3f7;font-size:9px}
+.client-tab.active{background:#fff1f2;border-color:#ffc3c9;color:var(--red)}
+.client-tab.active span{background:#ffe1e4;color:var(--red)}
+.settlement-notes-section{min-height:360px}
+.client-note-form{display:grid;gap:10px;margin-bottom:18px}
+.client-note-form textarea{width:100%;min-height:110px;border:1px solid var(--line);border-radius:12px;padding:12px 14px;resize:vertical;font:inherit;font-size:12px;line-height:1.5}
+.client-note-form textarea:focus{outline:0;border-color:var(--red);box-shadow:0 0 0 4px rgba(239,51,64,.08)}
+.client-note-form-actions{display:flex;justify-content:flex-end;align-items:center;gap:12px}
+.client-note-form-actions span{margin-right:auto;font-size:10px;color:#18845f}
+.client-notes-list{display:grid;gap:10px}
+.settlement-note{border:1px solid #edf0f5;background:#fafbfc;border-radius:12px;padding:13px 14px}
+.settlement-note-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+.settlement-note-head>div{display:flex;flex-direction:column;gap:3px}
+.settlement-note-head b{font-size:11px}
+.settlement-note-head span{font-size:9px;color:var(--muted)}
+.settlement-note p{margin:10px 0 0;font-size:12px;line-height:1.55;color:#343c4a}
+.delete-client-note{border:0;background:transparent;color:#d74a56;font-size:9px;font-weight:800;cursor:pointer}
+.notes-empty{padding:24px;text-align:center;color:var(--muted);font-size:11px;border:1px dashed var(--line);border-radius:12px}
+@media(max-width:640px){.client-profile-tabs{flex-direction:column}.client-tab{width:100%;text-align:left}}
