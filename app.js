@@ -1,6 +1,8 @@
 const stages=['Nowy lead','Do kontaktu','Kontakt wykonany','Kwalifikacja','Oferta','Follow-up','Wygrany','Przegrany'];
 let leads=[],view='dashboard';
-const app=document.querySelector('#app'),title=document.querySelector('#viewTitle'),subtitle=document.querySelector('#subtitle'),crumb=document.querySelector('#crumb'),addLeadBtn=document.querySelector('#addLead'),notificationBtn=document.querySelector('#notificationBtn'),notificationPanel=document.querySelector('#notificationPanel'),notificationBadge=document.querySelector('#notificationBadge'),notificationList=document.querySelector('#notificationList'),notificationSummary=document.querySelector('#notificationSummary');
+const app=document.querySelector('#app'),title=document.querySelector('#viewTitle'),subtitle=document.querySelector('#subtitle'),crumb=document.querySelector('#crumb'),addLeadBtn=document.querySelector('#addLead'),notificationBtn=document.querySelector('#notificationBtn'),notificationPanel=document.querySelector('#notificationPanel'),notificationBadge=document.querySelector('#notificationBadge'),notificationList=document.querySelector('#notificationList'),notificationSummary=document.querySelector('#notificationSummary'),employeeBtn=document.querySelector('#employeeBtn'),employeePanel=document.querySelector('#employeePanel'),employeeStats=document.querySelector('#employeeStats'),employeeLeadList=document.querySelector('#employeeLeadList');
+const currentEmployee='Anna Kowalczyk';
+let pendingOwnerFilter=null;
 const labels={dashboard:['Pulpit','Najważniejsze informacje z Twojego biura rachunkowego.'],stats:['Statystyki','Wyniki całego zespołu lub wybranego opiekuna.'],users:['Użytkownicy','Zespół i role w CRM.'],history:['Historia zmian','Rejestr zmian w systemie.'],reminders:['Przypomnienia','Zadania i terminy wymagające działania.'],emails:['Wiadomości e-mail','Robocza skrzynka i status korespondencji.'],clients:['Klienci','Aktywni klienci biura rachunkowego.'],leads:['Leady / Potencjalni klienci','Pełna lista kontaktów sprzedażowych.'],pipeline:['Szanse sprzedaży','Zarządzaj leadami i przesuwaj je przez kolejne etapy sprzedaży.'],offers:['Oferty','Wysłane i przygotowywane oferty.'],notes:['Notatki','Notatki handlowe i operacyjne.'],automations:['Automatyzacje','Reguły automatyzujące proces sprzedaży.'],templates:['Szablony dokumentów','Gotowe dokumenty i wzory.'],sequences:['Sekwencje e-mail','Zaplanowane serie wiadomości.'],integrations:['Integracje','Połączenia z zewnętrznymi usługami.'],settings:['Ustawienia systemu','Konfiguracja CRM.']};
 const money=n=>new Intl.NumberFormat('pl-PL',{style:'currency',currency:'PLN',maximumFractionDigits:0}).format(n||0);
 const overdue=d=>d&&new Date(d)<new Date(new Date().toISOString().slice(0,10));
@@ -50,11 +52,11 @@ function clientRow(l,fav=false){return `<div class="client-row"><span class="ava
 function activityRow(r){return `<div class="activity-row"><span class="activity-dot"></span><span class="activity-time">${new Date(r.created_at).toLocaleTimeString('pl-PL',{hour:'2-digit',minute:'2-digit'})}</span><span class="activity-icon">●</span><div><b>${r.title}</b><small>${r.detail||''}</small></div><i>•••</i></div>`}
 function actionTile(action,icon,label,desc,active=false){return `<button class="action-tile ${active?'highlight':''}" data-action="${action}"><span>${icon}</span><div><b>${label}</b><small>${desc}</small></div></button>`}
 function bindDashboardActions(){document.querySelectorAll('[data-view-link]').forEach(b=>b.onclick=()=>{view=b.dataset.viewLink;render()});document.querySelectorAll('[data-action]').forEach(b=>b.onclick=async()=>{const a=b.dataset.action;if(a==='new-lead')return document.querySelector('#modal').classList.remove('hidden');const map={task:'reminders',meeting:'reminders',message:'emails',onboarding:'clients',docs:'notes',offer:'offers',note:'notes',contact:'leads'};view=map[a]||'dashboard';render()})}
-async function statsView(){const base=await api('/api/stats');const owners=base.owners.map(x=>x.owner);app.innerHTML=`<div class="stats-toolbar"><label>Statystyki dla<select id="statsOwner"><option value="all">Cały zespół</option>${owners.map(o=>`<option value="${o}">${o}</option>`).join('')}</select></label></div><div id="statsBody"></div>`;const draw=async()=>{const owner=document.querySelector('#statsOwner').value,data=owner==='all'?base:await api('/api/stats?owner='+encodeURIComponent(owner)),t=data.totals;document.querySelector('#statsBody').innerHTML=`<div class="kpis premium"><div class="kpi-card pink"><div><span>Leady</span><b>${t.total}</b><small>łącznie</small></div></div><div class="kpi-card peach"><div><span>Wygrane</span><b>${t.won}</b><small>${money(t.won_mrr)} MRR</small></div></div><div class="kpi-card blue"><div><span>Konwersja</span><b>${t.conversion}%</b><small>lead → klient</small></div></div><div class="kpi-card green"><div><span>Pipeline</span><b>${money(t.pipeline_mrr)}</b><small>aktywny MRR</small></div></div></div><div class="report-grid"><div class="card"><h3>Etapy</h3>${data.stages.map(x=>`<div class="metric"><span>${x.stage}</span><b>${x.count} • ${money(x.mrr)}</b></div>`).join('')}</div><div class="card"><h3>Źródła</h3>${data.sources.map(x=>`<div class="metric"><span>${x.source}</span><b>${x.won}/${x.count}</b></div>`).join('')}</div></div>`};document.querySelector('#statsOwner').onchange=draw;draw()}
+async function statsView(){const base=await api('/api/stats');const owners=base.owners.map(x=>x.owner);app.innerHTML=`<div class="stats-toolbar"><label>Statystyki dla<select id="statsOwner"><option value="all">Cały zespół</option>${owners.map(o=>`<option value="${o}">${o}</option>`).join('')}</select></label></div><div id="statsBody"></div>`;const draw=async()=>{const owner=document.querySelector('#statsOwner').value,data=owner==='all'?base:await api('/api/stats?owner='+encodeURIComponent(owner)),t=data.totals;document.querySelector('#statsBody').innerHTML=`<div class="kpis premium"><div class="kpi-card pink"><div><span>Leady</span><b>${t.total}</b><small>łącznie</small></div></div><div class="kpi-card peach"><div><span>Wygrane</span><b>${t.won}</b><small>${money(t.won_mrr)} MRR</small></div></div><div class="kpi-card blue"><div><span>Konwersja</span><b>${t.conversion}%</b><small>lead → klient</small></div></div><div class="kpi-card green"><div><span>Pipeline</span><b>${money(t.pipeline_mrr)}</b><small>aktywny MRR</small></div></div></div><div class="report-grid"><div class="card"><h3>Etapy</h3>${data.stages.map(x=>`<div class="metric"><span>${x.stage}</span><b>${x.count} • ${money(x.mrr)}</b></div>`).join('')}</div><div class="card"><h3>Źródła</h3>${data.sources.map(x=>`<div class="metric"><span>${x.source}</span><b>${x.won}/${x.count}</b></div>`).join('')}</div></div>`};const select=document.querySelector('#statsOwner');select.onchange=draw;if(pendingOwnerFilter&&owners.includes(pendingOwnerFilter)){select.value=pendingOwnerFilter;pendingOwnerFilter=null}draw()}
 async function pipeline(){await loadLeads();app.innerHTML=`<div class="board-tools"><input id="boardSearch" placeholder="Szukaj szansy..."><select id="boardSource"><option value="">Wszystkie źródła</option>${[...new Set(leads.map(l=>l.source))].map(s=>`<option>${s}</option>`).join('')}</select><select id="boardGrade"><option value="">Każdy segment</option><option>A</option><option>B</option><option>C</option></select></div><div id="pipelineBoard" class="pipeline"></div>`;const draw=()=>{const q=document.querySelector('#boardSearch').value.toLowerCase(),src=document.querySelector('#boardSource').value,gr=document.querySelector('#boardGrade').value,filtered=leads.filter(l=>(!src||l.source===src)&&(!gr||l.grade===gr)&&(`${l.company} ${l.contact} ${l.owner}`.toLowerCase().includes(q)));document.querySelector('#pipelineBoard').innerHTML=stages.map(s=>{const ls=filtered.filter(l=>l.stage===s),total=ls.reduce((a,l)=>a+l.mrr,0);return `<div class="column"><div class="column-head"><div>${s}<span class="column-total">${money(total)} MRR</span></div><span class="count">${ls.length}</span></div><div class="column-body">${ls.map(card).join('')||'<div class="empty">Brak szans</div>'}</div></div>`}).join('');document.querySelectorAll('.lead-card').forEach(el=>el.onclick=()=>advance(Number(el.dataset.id)))};['#boardSearch','#boardSource','#boardGrade'].forEach(sel=>document.querySelector(sel).addEventListener('input',draw));draw()}
 function card(l){return `<div class="lead-card" data-id="${l.id}"><span class="more">⋮</span><h4>${l.company}</h4><p>${l.contact} • ${l.owner||'Nieprzypisany'}</p><div class="lead-price">${money(l.mrr)}</div><div class="lead-meta"><span>${l.followup||'brak terminu'} ${overdue(l.followup)?'<span class="overdue-badge">po terminie</span>':''}</span><span class="grade-dot grade-${l.grade.toLowerCase()}">${l.grade}</span></div></div>`}
 async function advance(id){const l=leads.find(x=>x.id===id),i=stages.indexOf(l.stage);if(!l||i>=stages.length-1)return;await api('/api/leads',{method:'PATCH',body:JSON.stringify({id,stage:stages[i+1]})});await render()}
-async function leadTable(){await loadLeads();app.innerHTML=`<div class="toolbar"><input id="q" placeholder="Szukaj firmy, kontaktu lub opiekuna…"><select id="stageFilter"><option value="">Wszystkie etapy</option>${stages.map(s=>`<option>${s}</option>`).join('')}</select></div><div class="table-wrap"><table><thead><tr><th>Firma</th><th>Kontakt</th><th>Opiekun</th><th>Źródło</th><th>Etap</th><th>Segment</th><th>MRR</th><th>Follow-up</th></tr></thead><tbody id="rows"></tbody></table></div>`;const draw=()=>{let q=document.querySelector('#q').value.toLowerCase(),sf=document.querySelector('#stageFilter').value;document.querySelector('#rows').innerHTML=leads.filter(l=>(!sf||l.stage===sf)&&(`${l.company} ${l.contact} ${l.owner} ${l.email}`.toLowerCase().includes(q))).map(l=>`<tr><td><b>${l.company}</b><br><small>${l.note||''}</small></td><td>${l.contact}<br><small>${l.email||''}</small></td><td>${l.owner||'Nieprzypisany'}</td><td>${l.source}</td><td>${l.stage}</td><td><span class="chip ${l.grade.toLowerCase()}">${l.grade}</span></td><td>${money(l.mrr)}</td><td class="${overdue(l.followup)?'overdue':'ok'}">${l.followup||'—'}</td></tr>`).join('')||'<tr><td colspan="8">Brak leadów. Dodaj pierwszy rekord.</td></tr>'};document.querySelector('#q').oninput=draw;document.querySelector('#stageFilter').onchange=draw;draw()}
+async function leadTable(){await loadLeads();app.innerHTML=`<div class="toolbar"><input id="q" placeholder="Szukaj firmy, kontaktu lub opiekuna…"><select id="stageFilter"><option value="">Wszystkie etapy</option>${stages.map(s=>`<option>${s}</option>`).join('')}</select></div><div class="table-wrap"><table><thead><tr><th>Firma</th><th>Kontakt</th><th>Opiekun</th><th>Źródło</th><th>Etap</th><th>Segment</th><th>MRR</th><th>Follow-up</th></tr></thead><tbody id="rows"></tbody></table></div>`;const draw=()=>{let q=document.querySelector('#q').value.toLowerCase(),sf=document.querySelector('#stageFilter').value;document.querySelector('#rows').innerHTML=leads.filter(l=>(!sf||l.stage===sf)&&(`${l.company} ${l.contact} ${l.owner} ${l.email}`.toLowerCase().includes(q))).map(l=>`<tr><td><b>${l.company}</b><br><small>${l.note||''}</small></td><td>${l.contact}<br><small>${l.email||''}</small></td><td>${l.owner||'Nieprzypisany'}</td><td>${l.source}</td><td>${l.stage}</td><td><span class="chip ${l.grade.toLowerCase()}">${l.grade}</span></td><td>${money(l.mrr)}</td><td class="${overdue(l.followup)?'overdue':'ok'}">${l.followup||'—'}</td></tr>`).join('')||'<tr><td colspan="8">Brak leadów. Dodaj pierwszy rekord.</td></tr>'};const q=document.querySelector('#q');q.oninput=draw;document.querySelector('#stageFilter').onchange=draw;if(pendingOwnerFilter){q.value=pendingOwnerFilter;pendingOwnerFilter=null}draw()}
 async function genericModule(key){const rows=await api('/api/modules?module='+encodeURIComponent(key));app.innerHTML=`<div class="module-actions"><button class="secondary" id="addModule">+ Dodaj</button><input id="moduleSearch" placeholder="Szukaj..."></div><div class="module-grid" id="moduleGrid"></div>`;const draw=()=>{const q=document.querySelector('#moduleSearch').value.toLowerCase();document.querySelector('#moduleGrid').innerHTML=rows.filter(r=>(r.title+' '+r.detail+' '+r.status).toLowerCase().includes(q)).map(r=>`<div class="module-card"><div class="module-icon">#</div><div><b>${r.title}</b><span>${r.detail||r.status||''}</span></div><button class="delete-item" data-id="${r.id}">×</button></div>`).join('')||'<div class="empty card">Brak danych. Dodaj pierwszy wpis.</div>';document.querySelectorAll('.delete-item').forEach(b=>b.onclick=async()=>{await api('/api/modules?module='+encodeURIComponent(key)+'&id='+b.dataset.id,{method:'DELETE'});await render()})};document.querySelector('#moduleSearch').oninput=draw;document.querySelector('#addModule').onclick=async()=>{const a=prompt('Nazwa / tytuł:');if(!a)return;const b=prompt('Opis / status:')||'';await api('/api/modules',{method:'POST',body:JSON.stringify({module:key,title:a,detail:b})});await render()};draw()}
 
 function notificationKey(n){return [n.type,n.id||'',n.title,n.date||''].join(':')}
@@ -101,7 +103,60 @@ async function refreshNotifications(){
 }
 notificationBtn.onclick=async e=>{e.stopPropagation();notificationPanel.classList.toggle('hidden');if(!notificationPanel.classList.contains('hidden'))await refreshNotifications()};
 document.querySelector('#markAllRead').onclick=async()=>{const items=await buildNotifications();const set=readNotifications();items.forEach(n=>set.add(notificationKey(n)));saveReadNotifications(set);await refreshNotifications()};
-document.addEventListener('click',e=>{if(!e.target.closest('.notification-wrap'))notificationPanel.classList.add('hidden')});
+document.addEventListener('click',e=>{if(!e.target.closest('.notification-wrap'))notificationPanel.classList.add('hidden');if(!e.target.closest('.employee-wrap'))employeePanel.classList.add('hidden')});
+
+async function refreshEmployeePanel(){
+  try{
+    await loadLeads();
+    const mine=leads.filter(l=>l.owner===currentEmployee);
+    const today=new Date().toISOString().slice(0,10);
+    const active=mine.filter(l=>!['Wygrany','Przegrany'].includes(l.stage));
+    const followups=mine.filter(l=>l.followup===today).length;
+    const stats=await api('/api/stats?owner='+encodeURIComponent(currentEmployee)).catch(()=>null);
+    employeeStats.innerHTML=`
+      <div><span>Aktywne leady</span><b>${active.length}</b></div>
+      <div><span>Follow-upy dziś</span><b>${followups}</b></div>
+      <div><span>Wygrany MRR</span><b>${money(stats?.totals?.won_mrr||0)}</b></div>
+    `;
+    employeeLeadList.innerHTML=active.slice(0,4).map(l=>`
+      <button class="employee-lead" data-employee-lead="${l.id}">
+        <span class="avatar-mini">${initials(l.company)}</span>
+        <span><b>${l.company}</b><small>${l.stage} • ${money(l.mrr)}</small></span>
+        <i>→</i>
+      </button>
+    `).join('')||'<div class="employee-empty">Brak aktywnych leadów przypisanych do Ciebie.</div>';
+    employeeLeadList.querySelectorAll('[data-employee-lead]').forEach(b=>b.onclick=()=>{
+      employeePanel.classList.add('hidden');
+      pendingOwnerFilter=currentEmployee;
+      view='leads';
+      render();
+    });
+  }catch(e){
+    employeeStats.innerHTML='<div class="employee-empty">Nie udało się pobrać danych pracownika.</div>';
+    employeeLeadList.innerHTML='';
+  }
+}
+employeeBtn.onclick=async e=>{
+  e.stopPropagation();
+  notificationPanel.classList.add('hidden');
+  employeePanel.classList.toggle('hidden');
+  if(!employeePanel.classList.contains('hidden')) await refreshEmployeePanel();
+};
+document.querySelector('#employeeAllLeads').onclick=()=>{
+  employeePanel.classList.add('hidden');
+  pendingOwnerFilter=currentEmployee;
+  view='leads';
+  render();
+};
+document.querySelectorAll('[data-employee-action]').forEach(b=>b.onclick=()=>{
+  employeePanel.classList.add('hidden');
+  const action=b.dataset.employeeAction;
+  if(action==='leads'){pendingOwnerFilter=currentEmployee;view='leads'}
+  if(action==='stats'){pendingOwnerFilter=currentEmployee;view='stats'}
+  if(action==='reminders'){view='reminders'}
+  render();
+});
+
 
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{view=b.dataset.view;render()});
 const modal=document.querySelector('#modal');addLeadBtn.onclick=()=>modal.classList.remove('hidden');document.querySelector('#closeModal').onclick=()=>modal.classList.add('hidden');
