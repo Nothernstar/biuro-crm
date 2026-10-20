@@ -42,7 +42,13 @@
   <div class="topbar">
     <div class="crumb" id="crumb">OGÓLNE / Pulpit</div>
     <div class="global-search">⌕ <input id="globalSearch" placeholder="Szukaj w CRM..."></div>
-    <button class="notification">♧<b>3</b></button>
+    <div class="notification-wrap">
+      <button class="notification" id="notificationBtn" aria-label="Powiadomienia">♧<b id="notificationBadge">0</b></button>
+      <div class="notification-panel hidden" id="notificationPanel">
+        <div class="notification-head"><div><b>Powiadomienia</b><small id="notificationSummary">0 nowych</small></div><button id="markAllRead">Oznacz jako przeczytane</button></div>
+        <div id="notificationList" class="notification-list"></div>
+      </div>
+    </div>
     <div class="user-chip"><span>AK</span><div><b>Anna Kowalczyk</b><small>Pracownik</small></div><i>⌄</i></div>
   </div>
   <header>
