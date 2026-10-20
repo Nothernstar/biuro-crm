@@ -698,12 +698,10 @@ async function leadTable(){
        <div class="lead-email">${l.email||'—'}</div>
        <div><span class="lead-stage-pill">${l.stage||'Nowy lead'}</span></div>
        <div class="lead-owner">
-         ${currentUser.role==='employee'
-           ? `<span class="lead-owner-text">${l.owner||'Nieprzypisany'}</span>`
-           : `<select class="lead-owner-select" data-lead-owner="${l.id}">
-                <option value="Nieprzypisany" ${!l.owner||l.owner==='Nieprzypisany'?'selected':''}>Nieprzypisany</option>
-                ${team.map(u=>`<option value="${u.full_name}" ${l.owner===u.full_name?'selected':''}>${u.full_name}</option>`).join('')}
-              </select>`}
+         <select class="lead-owner-select" data-lead-owner="${l.id}">
+           <option value="Nieprzypisany" ${!l.owner||l.owner==='Nieprzypisany'?'selected':''}>Nieprzypisany</option>
+           ${team.map(u=>`<option value="${u.full_name}" ${l.owner===u.full_name?'selected':''}>${u.full_name}</option>`).join('')}
+         </select>
        </div>
        <div class="lead-row-actions">
          <button type="button" class="secondary edit-lead" data-id="${l.id}">Edytuj</button>
@@ -1265,7 +1263,19 @@ document.querySelectorAll('[data-employee-action]').forEach(b=>b.onclick=()=>{em
 document.addEventListener('click',e=>{if(!e.target.closest('.notification-wrap'))notificationPanel.classList.add('hidden');if(!e.target.closest('.employee-wrap'))employeePanel.classList.add('hidden')});
 
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{view=b.dataset.view;localStorage.setItem('brcrm_view',view);render()});
-const modal=$('#modal');addLeadBtn.onclick=()=>modal.classList.remove('hidden');$('#closeModal').onclick=()=>modal.classList.add('hidden');
+const modal=$('#modal');
+addLeadBtn.onclick=async()=>{
+  const ownerSelect=$('#newLeadOwner');
+  try{
+    const team=await api('/api/team');
+    ownerSelect.innerHTML='<option value="Nieprzypisany">Nieprzypisany</option>'+team.map(u=>`<option value="${u.full_name}">${u.full_name} • ${roleLabel(u.role)}</option>`).join('');
+    if(currentUser?.full_name&&team.some(u=>u.full_name===currentUser.full_name))ownerSelect.value=currentUser.full_name;
+  }catch{
+    ownerSelect.innerHTML='<option value="Nieprzypisany">Nieprzypisany</option>';
+  }
+  modal.classList.remove('hidden');
+};
+$('#closeModal').onclick=()=>modal.classList.add('hidden');
 $('#leadForm').onsubmit=async e=>{e.preventDefault();const d=Object.fromEntries(new FormData(e.target));try{await api('/api/leads',{method:'POST',body:JSON.stringify({...d,stage:'Nowy lead'})});e.target.reset();modal.classList.add('hidden');await render();await refreshNotifications()}catch(err){alert(err.message)}};
 $('#globalSearch').oninput=async e=>{const q=e.target.value.trim();if(q.length<2)return;try{await loadLeads();const base=currentUser.role==='employee'?leads.filter(l=>l.owner===currentEmployeeName()):leads;if(base.some(l=>(l.company+' '+l.contact+' '+l.email+' '+l.owner).toLowerCase().includes(q.toLowerCase()))){view='leads';await render();const inp=$('#q');if(inp){inp.value=q;inp.dispatchEvent(new Event('input'))}}}catch{}};
 
