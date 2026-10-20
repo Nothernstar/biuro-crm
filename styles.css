@@ -39,3 +39,119 @@
   .auth-form input{height:54px;font-size:15px}
   .auth-submit{font-size:16px;padding:15px}
 }
+
+/* Enlarged admin user modal */
+.user-form-panel{
+  position:fixed;
+  inset:0;
+  background:rgba(24,29,43,.46);
+  display:grid;
+  place-items:center;
+  z-index:70;
+  padding:28px;
+}
+.user-form-panel.hidden{display:none}
+.user-form-card{
+  width:min(760px,100%);
+  background:#fff;
+  border-radius:24px;
+  padding:36px;
+  box-shadow:0 32px 90px rgba(20,30,50,.24);
+}
+.user-form-card .modal-head{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  margin-bottom:20px;
+}
+.user-form-card .modal-head h2{
+  margin:0;
+  font-size:30px;
+  line-height:1.08;
+  font-weight:850;
+  letter-spacing:-.5px;
+}
+.user-form-card .modal-head button{
+  border:0;
+  background:transparent;
+  font-size:34px;
+  line-height:1;
+  cursor:pointer;
+  color:#222;
+  padding:0 2px;
+}
+#userForm{
+  display:grid;
+  gap:8px;
+}
+#userForm label{
+  display:grid;
+  gap:9px;
+  margin-top:12px;
+  font-size:15px;
+  font-weight:750;
+  color:#4d5668;
+}
+#userForm input,
+#userForm select{
+  width:100%;
+  height:60px;
+  border:1px solid #d9dfeb;
+  border-radius:14px;
+  padding:0 16px;
+  font-size:16px;
+  background:#fff;
+}
+#userForm input:focus,
+#userForm select:focus{
+  outline:none;
+  border-color:var(--red);
+  box-shadow:0 0 0 4px rgba(239,51,64,.11);
+}
+#userForm .toggle-label{
+  display:flex!important;
+  align-items:center;
+  gap:10px!important;
+  margin-top:16px;
+  font-size:15px;
+  font-weight:750;
+}
+#userForm .toggle-label input{
+  width:19px!important;
+  height:19px!important;
+  margin:0;
+}
+#userForm .wide,
+#userForm button.primary,
+#userForm button[type="submit"]{
+  width:100%;
+  min-height:62px;
+  margin-top:14px;
+  border:0;
+  border-radius:14px;
+  font-size:19px;
+  font-weight:850;
+  background:linear-gradient(135deg,#ef3340,#ff5963);
+  color:#fff;
+  box-shadow:0 15px 32px rgba(239,51,64,.23);
+  cursor:pointer;
+}
+#userForm .wide:hover,
+#userForm button.primary:hover,
+#userForm button[type="submit"]:hover{
+  transform:translateY(-1px);
+}
+#userFormError{
+  margin-top:10px;
+  font-size:13px;
+  padding:11px 12px;
+  border-radius:10px;
+}
+@media(max-width:640px){
+  .user-form-panel{padding:14px}
+  .user-form-card{width:100%;padding:24px;border-radius:18px}
+  .user-form-card .modal-head h2{font-size:25px}
+  #userForm label{font-size:14px}
+  #userForm input,#userForm select{height:55px;font-size:15px}
+  #userForm .wide,#userForm button.primary,#userForm button[type="submit"]{min-height:56px;font-size:16px}
+}
