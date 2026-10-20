@@ -280,8 +280,9 @@ async function clientsView(){
        <div class="client-code">${x.nip||'—'}</div>
        <div class="client-code">${x.regon||'—'}</div>
        <div class="client-code">${x.entity_type==='jdg'?(x.pesel||'—'):(x.krs||'—')}</div>
-       <div class="client-row-actions"><button class="secondary edit-client" data-id="${x.id}">Edytuj</button>${currentUser.role!=='employee'? `<button class="danger-ghost delete-client" data-id="${x.id}">Usuń</button>`:''}</div>
+       <div class="client-row-actions"><button class="primary-mini open-client" data-id="${x.id}">Otwórz</button><button class="secondary edit-client" data-id="${x.id}">Edytuj</button>${currentUser.role!=='employee'? `<button class="danger-ghost delete-client" data-id="${x.id}">Usuń</button>`:''}</div>
      </div>`).join(''):'<div class="empty clients-empty">Brak klientów pasujących do filtrów.</div>';
+   document.querySelectorAll('.open-client').forEach(b=>b.onclick=()=>{selectedClientId=Number(b.dataset.id);localStorage.setItem('brcrm_client_id',String(selectedClientId));view='clientDetail';localStorage.setItem('brcrm_view',view);render()});
    document.querySelectorAll('.edit-client').forEach(b=>b.onclick=()=>openEdit(Number(b.dataset.id)));
    document.querySelectorAll('.delete-client').forEach(b=>b.onclick=async()=>{if(!confirm('Usunąć tego klienta?'))return;await api('/api/clients?id='+b.dataset.id,{method:'DELETE'});await clientsView()});
  };
@@ -326,6 +327,135 @@ async function clientsView(){
  });
  form.onsubmit=async e=>{e.preventDefault();const fd=Object.fromEntries(new FormData(form)),err=$('#clientFormError');err.classList.add('hidden');try{const payload={id:fd.id?Number(fd.id):undefined,name:fd.name,first_name:fd.entity_type==='jdg'?fd.first_name:'',last_name:fd.entity_type==='jdg'?fd.last_name:'',entity_type:fd.entity_type,nip:fd.nip,regon:fd.regon,pesel:fd.entity_type==='jdg'?fd.pesel:'',krs:fd.entity_type==='jdg'?'':fd.krs};if(fd.id)await api('/api/clients',{method:'PATCH',body:JSON.stringify(payload)});else await api('/api/clients',{method:'POST',body:JSON.stringify(payload)});panel.classList.add('hidden');await clientsView()}catch(x){err.textContent=x.message;err.classList.remove('hidden')}};
  setEntity('jdg');draw();
+}
+
+async function clientDetailView(){
+ if(!selectedClientId){
+   view='clients';localStorage.setItem('brcrm_view',view);return clientsView();
+ }
+ const clients=await api('/api/clients');
+ const x=clients.find(v=>Number(v.id)===Number(selectedClientId));
+ if(!x){
+   selectedClientId=null;localStorage.removeItem('brcrm_client_id');view='clients';localStorage.setItem('brcrm_view',view);return clientsView();
+ }
+ const isJdg=x.entity_type==='jdg';
+ const typeLabel=t=>t==='jdg'?'JDG':t==='company'?'Spółka':'Fundacja';
+ title.textContent=x.name;
+ subtitle.textContent='Karta klienta • '+typeLabel(x.entity_type);
+ crumb.textContent='CRM / Klienci / '+x.name;
+
+ app.innerHTML=`
+ <div class="client-profile-head">
+   <button class="back-client-btn" id="backToClients">← Wróć do klientów</button>
+   <div class="client-profile-title">
+     <span class="client-profile-avatar">${initials(x.name)}</span>
+     <div><h2>${x.name}</h2><div class="client-profile-meta"><span class="entity-pill">${typeLabel(x.entity_type)}</span><span>NIP: <b>${x.nip||'—'}</b></span><span>REGON: <b>${x.regon||'—'}</b></span>${!isJdg?`<span>KRS: <b>${x.krs||'—'}</b></span>`:''}</div></div>
+   </div>
+ </div>
+
+ <form id="clientProfileForm" class="client-profile-form">
+   <section class="profile-section">
+     <div class="profile-section-head"><div><h3>Dane kontaktowe i adresowe</h3><p>Adresy wykorzystywane w obsłudze księgowej i korespondencji.</p></div></div>
+     <div class="profile-grid">
+       <label class="${isJdg?'':'hidden'}">Adres zamieszkania<textarea name="residence_address" rows="3" placeholder="Ulica, numer, kod pocztowy, miejscowość">${x.residence_address||''}</textarea></label>
+       <label>Adres działalności<textarea name="business_address" rows="3" placeholder="Ulica, numer, kod pocztowy, miejscowość">${x.business_address||''}</textarea></label>
+       <label>Adres korespondencyjny<textarea name="correspondence_address" rows="3" placeholder="Jeżeli inny niż adres działalności">${x.correspondence_address||''}</textarea></label>
+       <label>E-mail kontaktowy<input name="contact_email" type="email" value="${x.contact_email||''}" placeholder="klient@firma.pl"></label>
+       <label>Język obsługi
+         <select name="service_language">
+           ${['Polski','Angielski','Niemiecki','Ukraiński','Inny'].map(v=>`<option ${(x.service_language||'Polski')===v?'selected':''}>${v}</option>`).join('')}
+         </select>
+       </label>
+     </div>
+   </section>
+
+   <section class="profile-section">
+     <div class="profile-section-head"><div><h3>Podatki i rozliczenia</h3><p>Podstawowe ustawienia podatkowe klienta.</p></div></div>
+     <div class="profile-grid profile-grid-3">
+       <label>Forma opodatkowania
+         <select name="taxation_form">
+           <option value="">Wybierz</option>
+           ${['Skala podatkowa','Podatek liniowy','Ryczałt','Karta podatkowa','CIT 9%','CIT 19%','Estoński CIT','Inna'].map(v=>`<option ${x.taxation_form===v?'selected':''}>${v}</option>`).join('')}
+         </select>
+       </label>
+       <label>VAT
+         <select name="vat_status">
+           <option value="">Wybierz</option>
+           ${['VAT czynny','Zwolniony z VAT','Nie dotyczy'].map(v=>`<option ${x.vat_status===v?'selected':''}>${v}</option>`).join('')}
+         </select>
+       </label>
+       <label>Forma ZUS
+         <select name="zus_form">
+           <option value="">Wybierz</option>
+           ${['Ulga na start','Preferencyjny ZUS','Mały ZUS Plus','Pełny ZUS','Bez ZUS','Nie dotyczy','Inna'].map(v=>`<option ${x.zus_form===v?'selected':''}>${v}</option>`).join('')}
+         </select>
+       </label>
+       <label>Cykl rozliczeń
+         <select name="settlement_frequency">
+           <option value="miesięcznie" ${(x.settlement_frequency||'miesięcznie')==='miesięcznie'?'selected':''}>Miesięcznie</option>
+           <option value="kwartalnie" ${x.settlement_frequency==='kwartalnie'?'selected':''}>Kwartalnie</option>
+         </select>
+       </label>
+       <label>Właściwy urząd skarbowy<input name="tax_office" value="${x.tax_office||''}" placeholder="np. Urząd Skarbowy Warszawa-Wola"></label>
+     </div>
+   </section>
+
+   <section class="profile-section">
+     <div class="profile-section-head"><div><h3>Daty i współpraca</h3><p>Najważniejsze daty dotyczące działalności i obsługi przez biuro.</p></div></div>
+     <div class="profile-grid profile-grid-3">
+       <label>Data startu działalności<input name="business_start_date" type="date" value="${x.business_start_date?String(x.business_start_date).slice(0,10):''}"></label>
+       <label>Data rozpoczęcia współpracy<input name="cooperation_start_date" type="date" value="${x.cooperation_start_date?String(x.cooperation_start_date).slice(0,10):''}"></label>
+     </div>
+   </section>
+
+   ${isJdg?`
+   <section class="profile-section">
+     <div class="profile-section-head"><div><h3>Dane właściciela JDG</h3><p>Dodatkowe dane osoby fizycznej prowadzącej działalność.</p></div></div>
+     <div class="profile-owner-summary">
+       <div><span>Imię</span><b>${x.first_name||'—'}</b></div>
+       <div><span>Nazwisko</span><b>${x.last_name||'—'}</b></div>
+       <div><span>PESEL</span><b>${x.pesel||'—'}</b></div>
+     </div>
+     <div class="profile-grid profile-grid-3">
+       <label>Imię ojca<input name="father_name" value="${x.father_name||''}"></label>
+       <label>Imię matki<input name="mother_name" value="${x.mother_name||''}"></label>
+     </div>
+   </section>`:''}
+
+   <div class="profile-save-bar">
+     <span id="profileSaveStatus"></span>
+     <button class="primary" type="submit">Zapisz kartę klienta</button>
+   </div>
+ </form>`;
+
+ $('#backToClients').onclick=()=>{view='clients';localStorage.setItem('brcrm_view',view);render()};
+ const form=$('#clientProfileForm');
+ form.onsubmit=async e=>{
+   e.preventDefault();
+   const fd=Object.fromEntries(new FormData(form)),status=$('#profileSaveStatus');
+   status.textContent='Zapisywanie…';
+   try{
+     const updated=await api('/api/clients',{method:'PATCH',body:JSON.stringify({
+       id:Number(x.id),
+       residence_address:isJdg?(fd.residence_address||''):'',
+       business_address:fd.business_address||'',
+       correspondence_address:fd.correspondence_address||'',
+       taxation_form:fd.taxation_form||'',
+       vat_status:fd.vat_status||'',
+       zus_form:fd.zus_form||'',
+       business_start_date:fd.business_start_date||null,
+       cooperation_start_date:fd.cooperation_start_date||null,
+       father_name:isJdg?(fd.father_name||''):'',
+       mother_name:isJdg?(fd.mother_name||''):'',
+       tax_office:fd.tax_office||'',
+       contact_email:fd.contact_email||'',
+       service_language:fd.service_language||'Polski',
+       settlement_frequency:fd.settlement_frequency||'miesięcznie'
+     })});
+     status.textContent='Zapisano ✓';
+     setTimeout(()=>{if($('#profileSaveStatus'))$('#profileSaveStatus').textContent=''},2200);
+   }catch(err){status.textContent='Błąd: '+err.message}
+ };
 }
 
 async function pipeline(){
