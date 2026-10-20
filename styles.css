@@ -675,3 +675,25 @@ button.reminder-row:hover{background:#fff}
 .lead-phase-tab.active span{background:#ffe3e6;color:var(--red)}
 .lead-phase-caption{margin:0 0 10px;color:var(--muted);font-size:9px;line-height:1.45}
 @media(max-width:640px){.lead-phase-tabs{flex-direction:column}.lead-phase-tab{width:100%;text-align:left}}
+
+/* Better manual reminder CTA */
+.reminders-toolbar{display:flex;justify-content:flex-start;align-items:center;margin:0 0 14px}
+#addManualReminder{
+  min-height:44px;
+  padding:0 18px;
+  border:0;
+  border-radius:12px;
+  background:var(--red);
+  color:#fff;
+  font-size:11px;
+  font-weight:850;
+  box-shadow:0 10px 24px rgba(239,51,64,.18);
+  cursor:pointer;
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  transition:transform .16s ease,box-shadow .16s ease,background .16s ease;
+}
+#addManualReminder::before{content:"＋";font-size:15px;line-height:1;font-weight:900}
+#addManualReminder:hover{transform:translateY(-1px);box-shadow:0 14px 28px rgba(239,51,64,.22)}
+#addManualReminder:active{transform:translateY(0)}
