@@ -429,3 +429,23 @@
 .delete-client-note{border:0;background:transparent;color:#d74a56;font-size:9px;font-weight:800;cursor:pointer}
 .notes-empty{padding:24px;text-align:center;color:var(--muted);font-size:11px;border:1px dashed var(--line);border-radius:12px}
 @media(max-width:640px){.client-profile-tabs{flex-direction:column}.client-tab{width:100%;text-align:left}}
+
+/* Client statuses */
+.clients-list-head,.client-list-row{
+  grid-template-columns:minmax(240px,1.8fr) 170px 120px 120px 140px 120px 130px 150px 205px;
+}
+.client-status-pill{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-height:24px;
+  padding:5px 9px;
+  border-radius:999px;
+  font-size:9px;
+  font-weight:850;
+  white-space:nowrap;
+}
+.client-status-pill.status-active{background:#eaf8f0;color:#11734f}
+.client-status-pill.status-suspended{background:#fff5dc;color:#9a6810}
+.client-status-pill.status-inactive{background:#eef1f5;color:#667085}
+.client-status-pill.status-payment_hold{background:#fff0f1;color:#b4232f}
