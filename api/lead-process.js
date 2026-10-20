@@ -2,15 +2,26 @@ import { db, ensureSchema } from '../lib/db.js';
 import { requireUser } from '../lib/auth.js';
 
 const defaults=[
-  'Pierwszy kontakt z leadem',
-  'Rozmowa / kwalifikacja potrzeb',
-  'Przygotowanie i wysłanie oferty',
-  'Ustalenie warunków współpracy',
-  'Dane do umowy',
-  'Umowa podpisana',
-  'Dostępy i dokumenty do księgowości',
-  'Wysłano maila z kontaktem do opiekuna',
-  'Start obsługi klienta'
+  'Dodanie kanału na Slacku',
+  'Zestawienie klientów',
+  'Rejestracja działalności',
+  'Podpisana umowa',
+  'Dopisanie do checklisty ZUS rejestracji',
+  'Ustalenie sposobu opłacania ZUS',
+  'Złożenie VAT-R',
+  'Przekazanie instrukcji do złożenia pełnomocnictw',
+  'Dodanie rachunku bankowego do CEIDG',
+  'Pełnomocnictwa złożone',
+  'Pełnomocnictwa potwierdzone',
+  'Dopytanie o koszty samochodu, mieszkania i opisanie',
+  'Weryfikacja na wniosku do CEIDG formy opodatkowania',
+  'Weryfikacja GTU i ew. stawki ryczałtu',
+  'Weryfikacja białej listy',
+  'Ustalenie sposobu wymiany dokumentów',
+  'Dodanie do Mailchimpa',
+  'Dodanie do fakturowni konta klienta i faktury cyklicznej',
+  'Połączenie KSeF',
+  'Zakończenie onboardingu - potwierdzenie wszystkiego powyżej'
 ];
 
 async function assertLeadAccess(sql,user,leadId){
@@ -32,17 +43,30 @@ export default async function handler(req,res){
     if(!(await assertLeadAccess(sql,user,leadId)))return res.status(403).json({error:'Brak dostępu do tego leada.'});
 
     if(req.method==='GET'){
-      const existing=await sql`SELECT id FROM lead_onboarding_items WHERE lead_id=${leadId} LIMIT 1`;
-      if(!existing[0]){
-        for(let i=0;i<defaults.length;i++){
-          await sql`
-            INSERT INTO lead_onboarding_items(lead_id,title,sort_order)
-            VALUES(${leadId},${defaults[i]},${i+1})
-          `;
-        }
+      const existingItems=await sql`
+        SELECT id,title FROM lead_onboarding_items WHERE lead_id=${leadId}
+      `;
+      const existingTitles=new Set(existingItems.map(x=>x.title));
+      let addedDefaults=0;
+      for(let i=0;i<defaults.length;i++){
+        if(existingTitles.has(defaults[i])) continue;
+        await sql`
+          INSERT INTO lead_onboarding_items(lead_id,title,sort_order)
+          VALUES(${leadId},${defaults[i]},${i+1})
+        `;
+        addedDefaults++;
+      }
+      if(addedDefaults){
         await sql`
           INSERT INTO lead_events(lead_id,event_type,title,detail,actor_id,actor_name)
-          VALUES(${leadId},'onboarding','Utworzono checklistę onboardingu','Domyślna checklista została dodana.',${Number(user.id)},${user.full_name})
+          VALUES(
+            ${leadId},
+            'onboarding',
+            ${existingItems.length?'Uzupełniono checklistę onboardingu':'Utworzono checklistę onboardingu'},
+            ${existingItems.length?'Dodano brakujące punkty checklisty.':'Domyślna checklista została dodana.'},
+            ${Number(user.id)},
+            ${user.full_name}
+          )
         `;
       }
       const items=await sql`
