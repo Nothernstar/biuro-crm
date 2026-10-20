@@ -19,8 +19,6 @@ const labels={
  clientDetail:['Karta klienta','Dane księgowe i organizacyjne klienta.'],
  leads:['Leady / Potencjalni klienci','Pełna lista kontaktów sprzedażowych.'],
  leadDetail:['Proces leada','Onboarding, odpowiedzialności i historia procesu.'],
- offers:['Oferty','Wysłane i przygotowywane oferty.'],
- notes:['Notatki','Notatki handlowe i operacyjne.'],
  templates:['Szablony e-mail','Gotowe wzory wiadomości e-mail.'],
  integrations:['Integracje','Połączenia z zewnętrznymi usługami.'],
  settings:['Ustawienia systemu','Konfiguracja CRM.']
@@ -63,6 +61,7 @@ async function enterApp(){
  appShell.classList.remove('auth-hidden');
  if(view==='pipeline')view='leads';
  if(['automations','sequences'].includes(view))view='templates';
+ if(['offers','notes'].includes(view))view='leads';
  if(!labels[view]) view='dashboard';
  await render();
  await refreshNotifications();
@@ -178,7 +177,7 @@ async function dashboard(){
 function clientRow(l,fav=false){return `<div class="client-row"><span class="avatar-mini">${initials(l.company)}</span><div><b>${l.company}</b><small>${l.contact||l.stage}</small></div><span class="star">${fav?'★':'☆'}</span></div>`}
 function activityRow(r){return `<div class="activity-row"><span class="activity-dot"></span><span class="activity-time">${new Date(r.created_at).toLocaleTimeString('pl-PL',{hour:'2-digit',minute:'2-digit'})}</span><span class="activity-icon">●</span><div><b>${r.title}</b><small>${r.detail||''}</small></div><i>•••</i></div>`}
 function actionTile(action,icon,label,desc,active=false){return `<button class="action-tile ${active?'highlight':''}" data-action="${action}"><span>${icon}</span><div><b>${label}</b><small>${desc}</small></div></button>`}
-function bindDashboardActions(){document.querySelectorAll('[data-view-link]').forEach(b=>b.onclick=()=>{view=b.dataset.viewLink;localStorage.setItem('brcrm_view',view);render()});document.querySelectorAll('[data-action]').forEach(b=>b.onclick=()=>{const a=b.dataset.action;if(a==='new-lead')return $('#modal').classList.remove('hidden');const map={task:'reminders',meeting:'meetings',message:'emails',onboarding:'clients',docs:'notes',offer:'offers',note:'notes',contact:'leads'};view=map[a]||'dashboard';render()})}
+function bindDashboardActions(){document.querySelectorAll('[data-view-link]').forEach(b=>b.onclick=()=>{view=b.dataset.viewLink;localStorage.setItem('brcrm_view',view);render()});document.querySelectorAll('[data-action]').forEach(b=>b.onclick=()=>{const a=b.dataset.action;if(a==='new-lead')return $('#modal').classList.remove('hidden');const map={task:'reminders',meeting:'meetings',message:'emails',contact:'leads'};view=map[a]||'dashboard';render()})}
 
 async function statsView(){
  const base=await api('/api/stats'),owners=base.owners.map(x=>x.owner);
