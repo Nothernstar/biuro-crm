@@ -1012,8 +1012,7 @@ async function remindersView(){
    .sort((a,b)=>String(a.date).localeCompare(String(b.date)));
 
  app.innerHTML=`
- <div class="reminders-head">
-   <div><h2>Przypomnienia</h2><p>Terminy follow-upów leadów oraz ręczne przypomnienia.</p></div>
+ <div class="reminders-toolbar">
    <button class="secondary" id="addManualReminder">+ Dodaj ręczne przypomnienie</button>
  </div>
  <div class="reminders-layout">
