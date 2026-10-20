@@ -287,3 +287,42 @@
 .temp-password-value code{font-size:17px;font-weight:800;letter-spacing:.5px;overflow:auto}
 .temp-password-value button{border:0;background:var(--red);color:#fff;border-radius:9px;padding:10px 12px;font-size:11px;font-weight:800;cursor:pointer}
 @media(max-width:640px){.password-admin-field{grid-template-columns:1fr 1fr}.password-admin-field input{grid-column:1/-1}.temp-password-value{grid-template-columns:1fr}.temp-password-value button{width:100%}}
+
+/* Clients registry */
+.clients-toolbar{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:16px}
+.clients-search{display:flex;align-items:center;gap:8px;width:min(460px,100%);height:44px;background:#fff;border:1px solid var(--line);border-radius:12px;padding:0 13px;color:#8791a4}
+.clients-search input{width:100%;border:0;outline:0;background:transparent;font-size:13px}
+.clients-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px}
+.client-card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px;box-shadow:var(--shadow)}
+.client-card-top{display:grid;grid-template-columns:46px 1fr auto;gap:12px;align-items:center}
+.client-avatar{width:44px;height:44px;border-radius:13px;background:#fff0f1;color:var(--red);display:grid;place-items:center;font-size:12px;font-weight:900}
+.client-card h3{margin:0;font-size:15px}
+.client-card p{margin:4px 0 0;color:var(--muted);font-size:11px}
+.entity-pill{background:#fff1f2;color:var(--red);border-radius:999px;padding:6px 9px;font-size:9px;font-weight:800}
+.client-identifiers{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:15px}
+.client-identifiers>div{background:#fafbfc;border:1px solid #f0f2f6;border-radius:10px;padding:10px}
+.client-identifiers span{display:block;color:var(--muted);font-size:8px;text-transform:uppercase;letter-spacing:.5px}
+.client-identifiers b{display:block;margin-top:3px;font-size:11px}
+.client-card-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
+.danger-ghost{border:1px solid #ffd0d4;background:#fff;color:var(--red);border-radius:8px;padding:8px 11px;cursor:pointer}
+.clients-empty{grid-column:1/-1}
+.client-form-panel{position:fixed;inset:0;background:rgba(24,29,43,.46);display:grid;place-items:center;z-index:72;padding:20px}
+.client-form-panel.hidden{display:none}
+.client-form-card{width:min(760px,100%);max-height:92vh;overflow:auto;background:#fff;border-radius:22px;padding:28px;box-shadow:0 30px 90px rgba(20,30,50,.24)}
+.client-form-card .modal-head{margin-bottom:14px}
+.client-form-card .modal-head>div h2{margin:0;font-size:26px}
+.client-form-card .modal-head>div p{margin:5px 0 0;color:var(--muted);font-size:11px}
+#clientForm{display:grid;gap:8px}
+#clientForm label{font-size:13px;margin-top:10px}
+#clientForm input,#clientForm select{height:54px;border:1px solid var(--line);border-radius:12px;padding:0 14px;font-size:14px}
+#clientForm input:focus,#clientForm select:focus{outline:0;border-color:var(--red);box-shadow:0 0 0 4px rgba(239,51,64,.1)}
+.entity-switch{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.entity-switch button{height:46px;border:1px solid var(--line);background:#fff;border-radius:11px;font-size:12px;font-weight:750;color:#596173;cursor:pointer}
+.entity-switch button.active{background:#fff1f2;border-color:#ffb8bf;color:var(--red);box-shadow:0 0 0 3px rgba(239,51,64,.06)}
+.lookup-field{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px}
+.gus-btn{border:1px solid #ffd1d5;background:#fff7f8;color:var(--red);border-radius:10px;padding:0 12px;font-size:10px;font-weight:800;cursor:pointer}
+.gus-btn:disabled{opacity:.55;cursor:wait}
+.gus-status{margin-top:8px;border-radius:10px;padding:10px 12px;font-size:11px}
+.gus-status.success{background:#edf9f2;color:#08704d;border:1px solid #d9f0e2}
+.gus-status.error{background:#fff1f2;color:#a71d27;border:1px solid #ffd0d4}
+@media(max-width:700px){.clients-toolbar{align-items:stretch;flex-direction:column}.clients-search{width:100%}.clients-grid{grid-template-columns:1fr}.client-form-card{padding:20px}.lookup-field{grid-template-columns:1fr}.gus-btn{height:44px}.entity-switch{grid-template-columns:1fr}.client-identifiers{grid-template-columns:1fr}}
