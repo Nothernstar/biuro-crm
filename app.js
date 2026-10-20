@@ -627,12 +627,57 @@ async function leadTable(){
  </div>
  <div class="leads-list-wrap">
    <div class="leads-list-head">
-     <span>Lead</span><span>Status</span><span>Ocena</span><span>Źródło</span><span>E-mail</span><span>Etap</span><span>Opiekun</span>
+     <span>Lead</span><span>Status</span><span>Ocena</span><span>Źródło</span><span>E-mail</span><span>Etap</span><span>Opiekun</span><span>Akcje</span>
    </div>
    <div class="leads-list" id="rows"></div>
+ </div>
+ <div class="lead-edit-panel hidden" id="leadEditPanel">
+   <div class="lead-edit-card">
+     <div class="modal-head"><div><h2>Edytuj lead</h2><p>Zmień podstawowe dane kontaktu sprzedażowego.</p></div><button type="button" id="closeLeadEdit">×</button></div>
+     <form id="leadEditForm">
+       <input type="hidden" name="id">
+       <label>Nazwa leada<input name="company" required></label>
+       <label>Opis leada<textarea name="note" rows="3"></textarea></label>
+       <div class="grid2">
+         <label>Ocena<select name="lead_quality"><option value="Dobry">Dobry</option><option value="Słaby">Słaby</option></select></label>
+         <label>Źródło<input name="source"></label>
+       </div>
+       <label>E-mail<input name="email" type="email"></label>
+       <div class="lead-edit-actions">
+         <button type="button" class="secondary" id="cancelLeadEdit">Anuluj</button>
+         <button type="submit" class="primary">Zapisz zmiany</button>
+       </div>
+       <div class="auth-error hidden" id="leadEditError"></div>
+     </form>
+   </div>
  </div>`;
 
  const q=$('#q'),stageFilter=$('#stageFilter'),qualityFilter=$('#qualityFilter'),sortSelect=$('#leadSort');
+ const editPanel=$('#leadEditPanel'),editForm=$('#leadEditForm');
+ const openLeadEdit=id=>{
+   const l=leads.find(x=>Number(x.id)===Number(id));if(!l)return;
+   editForm.id.value=l.id;
+   editForm.company.value=l.company||'';
+   editForm.note.value=l.note||'';
+   editForm.lead_quality.value=l.lead_quality||'Dobry';
+   editForm.source.value=l.source||'';
+   editForm.email.value=l.email||'';
+   $('#leadEditError').classList.add('hidden');
+   editPanel.classList.remove('hidden');
+ };
+ $('#closeLeadEdit').onclick=$('#cancelLeadEdit').onclick=()=>editPanel.classList.add('hidden');
+ editForm.onsubmit=async e=>{
+   e.preventDefault();
+   const fd=Object.fromEntries(new FormData(editForm)),err=$('#leadEditError');
+   err.classList.add('hidden');
+   try{
+     await api('/api/leads',{method:'PATCH',body:JSON.stringify({
+       id:Number(fd.id),company:fd.company,note:fd.note,lead_quality:fd.lead_quality,source:fd.source,email:fd.email
+     })});
+     editPanel.classList.add('hidden');
+     await leadTable();
+   }catch(x){err.textContent=x.message;err.classList.remove('hidden')}
+ };
  const draw=()=>{
    const term=q.value.toLowerCase().trim(),sf=stageFilter.value,qf=qualityFilter.value,sort=sortSelect.value;
    const base=currentUser.role==='employee'?leads.filter(l=>l.owner===currentEmployeeName()):leads;
@@ -652,8 +697,19 @@ async function leadTable(){
        <div class="lead-email">${l.email||'—'}</div>
        <div><span class="lead-stage-pill">${l.stage||'Nowy lead'}</span></div>
        <div class="lead-owner">${l.owner||'Nieprzypisany'}</div>
+       <div class="lead-row-actions">
+         <button type="button" class="secondary edit-lead" data-id="${l.id}">Edytuj</button>
+         ${currentUser.role!=='employee'? `<button type="button" class="danger-ghost delete-lead" data-id="${l.id}">Usuń</button>`:''}
+       </div>
      </div>`).join(''):'<div class="empty leads-empty">Brak leadów pasujących do filtrów.</div>';
    document.querySelectorAll('.open-lead').forEach(b=>b.onclick=()=>{selectedLeadId=Number(b.dataset.id);localStorage.setItem('brcrm_lead_id',String(selectedLeadId));view='leadDetail';localStorage.setItem('brcrm_view',view);render()});
+   document.querySelectorAll('.edit-lead').forEach(b=>b.onclick=()=>openLeadEdit(Number(b.dataset.id)));
+   document.querySelectorAll('.delete-lead').forEach(b=>b.onclick=async()=>{
+     const lead=leads.find(x=>Number(x.id)===Number(b.dataset.id));
+     if(!confirm('Usunąć lead „'+(lead?.company||'')+'”? Tej operacji nie można cofnąć.'))return;
+     await api('/api/leads?id='+b.dataset.id,{method:'DELETE'});
+     await leadTable();
+   });
  };
 
  q.oninput=draw;
