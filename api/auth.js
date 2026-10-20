@@ -1,10 +1,12 @@
 import { db, ensureSchema } from '../lib/db.js';
 import { hashPassword, verifyPassword, setSession, clearSession, getCurrentUser } from '../lib/auth.js';
-import { authRateLimit } from '../lib/rate-limit.js';
+import { authRateLimit, apiRateLimit } from '../lib/rate-limit.js';
 
 export default async function handler(req,res){
   try{
-    if(req.method==='POST' && !authRateLimit(req,res)) return;
+    if(req.method==='POST'){
+      if(!authRateLimit(req,res)) return;
+    }else if(!apiRateLimit(req,res)) return;
     await ensureSchema();
     const sql=db();
 
