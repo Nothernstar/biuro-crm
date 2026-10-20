@@ -1,8 +1,10 @@
 import { db, ensureSchema } from '../lib/db.js';
 import { hashPassword, requireUser } from '../lib/auth.js';
+import { apiRateLimit } from '../lib/rate-limit.js';
 
 export default async function handler(req,res){
   try{
+    if(!apiRateLimit(req,res)) return;
     await ensureSchema();
     const admin=await requireUser(req,res,['admin']);
     if(!admin) return;
