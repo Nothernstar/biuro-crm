@@ -1,6 +1,7 @@
 import { db, ensureSchema } from '../lib/db.js';
 import { requireUser } from '../lib/auth.js';
 import { apiRateLimit } from '../lib/rate-limit.js';
+import { addHistory } from '../lib/history.js';
 
 const digits=value=>String(value||'').replace(/\D/g,'');
 
@@ -99,6 +100,7 @@ export default async function handler(req,res){
         INSERT INTO client_status_events(client_id,from_status,to_status,actor_id,actor_name)
         VALUES(${rows[0].id},NULL,${clientStatus},${Number(user.id)},${user.full_name})
       `;
+      await addHistory(sql,{title:'Dodano klienta',detail:rows[0].name,actor:user.full_name,status:'client_created'});
       return res.status(201).json(rows[0]);
     }
 
@@ -178,7 +180,10 @@ export default async function handler(req,res){
           INSERT INTO client_status_events(client_id,from_status,to_status,actor_id,actor_name)
           VALUES(${id},${current.client_status},${clientStatus},${Number(user.id)},${user.full_name})
         `;
+        const labels={active:'Aktywny',suspended:'Zawieszony',inactive:'Nieobsługiwany',payment_hold:'Wstrzymany – płatności'};
+        await addHistory(sql,{title:'Zmieniono status klienta',detail:rows[0].name+' • '+(labels[current.client_status]||current.client_status)+' → '+(labels[clientStatus]||clientStatus),actor:user.full_name,status:'client_status'});
       }
+      await addHistory(sql,{title:'Edytowano klienta',detail:rows[0].name,actor:user.full_name,status:'client_updated'});
       return res.status(200).json(rows[0]);
     }
 
@@ -186,7 +191,10 @@ export default async function handler(req,res){
       if(user.role==='employee')return res.status(403).json({error:'Brak uprawnień do usuwania klientów.'});
       const id=Number(req.query.id);
       if(!id)return res.status(400).json({error:'Brak id klienta.'});
+      const current=(await sql`SELECT name FROM clients WHERE id=${id} LIMIT 1`)[0];
+      if(!current)return res.status(404).json({error:'Nie znaleziono klienta.'});
       await sql`DELETE FROM clients WHERE id=${id}`;
+      await addHistory(sql,{title:'Usunięto klienta',detail:current.name,actor:user.full_name,status:'client_deleted'});
       return res.status(204).end();
     }
 
