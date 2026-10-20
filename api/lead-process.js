@@ -1,6 +1,7 @@
 import { db, ensureSchema } from '../lib/db.js';
 import { requireUser } from '../lib/auth.js';
 import { apiRateLimit } from '../lib/rate-limit.js';
+import { addHistory } from '../lib/history.js';
 
 const acquisitionDefaults=[
   'Pierwszy kontakt z leadem',
@@ -58,6 +59,7 @@ export default async function handler(req,res){
     const leadId=Number(req.method==='GET'?req.query.lead_id:(req.body?.lead_id||req.query.lead_id));
     if(!leadId)return res.status(400).json({error:'Brak lead_id.'});
     if(!(await assertLeadAccess(sql,user,leadId)))return res.status(403).json({error:'Brak dostępu do tego leada.'});
+    const leadName=(await sql`SELECT company FROM leads WHERE id=${leadId} LIMIT 1`)[0]?.company||('Lead #'+leadId);
 
     if(req.method==='GET'){
       await sql`
@@ -144,6 +146,7 @@ export default async function handler(req,res){
           INSERT INTO lead_events(lead_id,event_type,title,detail,actor_id,actor_name)
           VALUES(${leadId},'checklist','Dodano punkt onboardingu',${title},${Number(user.id)},${user.full_name})
         `;
+        await addHistory(sql,{title:'Dodano punkt onboardingu',detail:leadName+' • '+title,actor:user.full_name,status:'onboarding_item_added'});
         return res.status(201).json(rows[0]);
       }
       if(action==='add_event'){
@@ -155,6 +158,7 @@ export default async function handler(req,res){
           VALUES(${leadId},'note',${title},${detail},${Number(user.id)},${user.full_name})
           RETURNING id,lead_id,event_type,title,detail,actor_name,occurred_at
         `;
+        await addHistory(sql,{title:'Dodano zdarzenie do leada',detail:leadName+' • '+title,actor:user.full_name,status:'lead_event'});
         return res.status(201).json(rows[0]);
       }
       return res.status(400).json({error:'Nieznana akcja.'});
@@ -204,11 +208,13 @@ export default async function handler(req,res){
             ${user.full_name}
           )
         `;
+        await addHistory(sql,{title:done?'Zakończono punkt onboardingu':'Cofnięto punkt onboardingu',detail:leadName+' • '+current.title,actor:user.full_name,status:'onboarding_item_status'});
       }else if(String(assigneeName)!==String(current.assignee_name||'')){
         await sql`
           INSERT INTO lead_events(lead_id,event_type,title,detail,actor_id,actor_name)
           VALUES(${leadId},'assignment','Przypisano odpowiedzialność',${current.title+' → '+(assigneeName||'Nieprzypisany')},${Number(user.id)},${user.full_name})
         `;
+        await addHistory(sql,{title:'Zmieniono odpowiedzialność w onboardingu',detail:leadName+' • '+current.title+' → '+(assigneeName||'Nieprzypisany'),actor:user.full_name,status:'onboarding_assignment'});
       }
       return res.status(200).json(rows[0]);
     }
@@ -223,6 +229,7 @@ export default async function handler(req,res){
         INSERT INTO lead_events(lead_id,event_type,title,detail,actor_id,actor_name)
         VALUES(${leadId},'checklist','Usunięto punkt onboardingu',${current.title},${Number(user.id)},${user.full_name})
       `;
+      await addHistory(sql,{title:'Usunięto punkt onboardingu',detail:leadName+' • '+current.title,actor:user.full_name,status:'onboarding_item_deleted'});
       return res.status(204).end();
     }
 
