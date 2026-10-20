@@ -92,7 +92,7 @@ async function refreshNotifications(){
     }).join(''):'<div class="notification-empty">Wszystko ogarnięte 🎉<small>Nie masz teraz żadnych alertów.</small></div>';
     notificationList.querySelectorAll('.notification-item').forEach(el=>el.onclick=()=>{
       const set=readNotifications();set.add(decodeURIComponent(el.dataset.notificationKey));saveReadNotifications(set);
-      notificationPanel.classList.add('hidden');view=el.dataset.notificationView||'dashboard';render();refreshNotifications();refreshNotifications();
+      notificationPanel.classList.add('hidden');view=el.dataset.notificationView||'dashboard';render();refreshNotifications();
     });
   }catch(e){
     notificationBadge.textContent='!';
@@ -107,4 +107,4 @@ document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{view=b.dataset
 const modal=document.querySelector('#modal');addLeadBtn.onclick=()=>modal.classList.remove('hidden');document.querySelector('#closeModal').onclick=()=>modal.classList.add('hidden');
 document.querySelector('#leadForm').onsubmit=async e=>{e.preventDefault();const d=Object.fromEntries(new FormData(e.target));try{await api('/api/leads',{method:'POST',body:JSON.stringify({...d,mrr:Number(d.mrr)||0,stage:'Nowy lead'})});e.target.reset();modal.classList.add('hidden');await api('/api/modules',{method:'POST',body:JSON.stringify({module:'history',title:'Dodano lead',detail:d.company})}).catch(()=>{});await render()}catch(err){alert(err.message)}};
 document.querySelector('#globalSearch').oninput=async e=>{const q=e.target.value.trim();if(q.length<2)return;try{await loadLeads();const hit=leads.some(l=>(l.company+' '+l.contact+' '+l.email+' '+l.owner).toLowerCase().includes(q.toLowerCase()));if(hit){view='leads';await render();const inp=document.querySelector('#q');if(inp){inp.value=q;inp.dispatchEvent(new Event('input'))}}}catch{}};
-render();
+render();refreshNotifications();
