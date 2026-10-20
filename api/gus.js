@@ -13,10 +13,15 @@ async function lookupByNip(nip){
   const subject=data?.result?.subject;
   if(!subject) return null;
   const rep=Array.isArray(subject.representatives)&&subject.representatives.length===1?subject.representatives[0]:null;
+  const words=String(subject.name||'').trim().split(/\s+/).filter(Boolean);
+  const inferredFirst=words[0]||'';
+  const inferredLast=words[1]||'';
   return {
     source:'Ministerstwo Finansów — Wykaz podatników VAT',
     name:subject.name||'',
-    person_name:rep?[rep.firstName,rep.lastName].filter(Boolean).join(' '):'',
+    person_name:rep?[rep.firstName,rep.lastName].filter(Boolean).join(' '):[inferredFirst,inferredLast].filter(Boolean).join(' '),
+    first_name:rep?.firstName||inferredFirst,
+    last_name:rep?.lastName||inferredLast,
     nip:digits(subject.nip)||nip,
     krs:digits(subject.krs),
     regon:digits(subject.regon),
@@ -43,6 +48,8 @@ function normalizeKrsData(data,krs){
     krs:digits(odpis?.naglowekA?.numerKRS)||krs,
     regon:digits(ids?.regon),
     person_name:'',
+    first_name:'',
+    last_name:'',
     pesel:'',
     legal_form:podmiot?.formaPrawna||'',
     address:[street,[postal,city].filter(Boolean).join(' ')].filter(Boolean).join(', ')
