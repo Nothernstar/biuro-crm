@@ -213,10 +213,23 @@ async function clientsView(){
  const clients=await api('/api/clients');
  app.innerHTML=`
  <div class="clients-toolbar">
-   <div class="clients-search"><span>⌕</span><input id="clientSearch" placeholder="Szukaj po nazwie, osobie, NIP, REGON lub KRS..."></div>
+   <div class="clients-toolbar-left">
+     <div class="clients-search"><span>⌕</span><input id="clientSearch" placeholder="Szukaj po nazwie, osobie, NIP, REGON lub KRS..."></div>
+     <select id="clientTypeFilter" class="client-type-filter">
+       <option value="">Wszystkie formy prawne</option>
+       <option value="jdg">JDG</option>
+       <option value="company">Spółka</option>
+       <option value="foundation">Fundacja</option>
+     </select>
+   </div>
    <button class="primary" id="openClientForm">+ Dodaj klienta</button>
  </div>
- <div class="clients-grid" id="clientsGrid"></div>
+ <div class="clients-list-wrap">
+   <div class="clients-list-head">
+     <span>Klient</span><span>Forma prawna</span><span>Imię</span><span>Nazwisko</span><span>NIP</span><span>REGON</span><span>PESEL / KRS</span><span>Akcje</span>
+   </div>
+   <div class="clients-list" id="clientsGrid"></div>
+ </div>
  <div class="client-form-panel hidden" id="clientFormPanel">
    <div class="client-form-card">
      <div class="modal-head"><div><h2 id="clientFormTitle">Nowy klient</h2><p>Uzupełnij dane klienta lub pobierz je z rejestru publicznego.</p></div><button id="closeClientForm">×</button></div>
@@ -245,18 +258,22 @@ async function clientsView(){
      </form>
    </div>
  </div>`;
- const grid=$('#clientsGrid'),panel=$('#clientFormPanel'),form=$('#clientForm'),q=$('#clientSearch');
+ const grid=$('#clientsGrid'),panel=$('#clientFormPanel'),form=$('#clientForm'),q=$('#clientSearch'),typeFilter=$('#clientTypeFilter');
  const typeLabel=t=>t==='jdg'?'JDG':t==='company'?'Spółka':'Fundacja';
- const draw=()=>{const term=q.value.toLowerCase().trim();const filtered=clients.filter(x=>(x.name+' '+(x.first_name||'')+' '+(x.last_name||'')+' '+(x.contact_name||'')+' '+x.nip+' '+(x.regon||'')+' '+(x.krs||'')+' '+(x.pesel||'')).toLowerCase().includes(term));grid.innerHTML=filtered.length?filtered.map(x=>`
-   <article class="client-card">
-     <div class="client-card-top"><span class="client-avatar">${initials(x.name)}</span><div><h3>${x.name}</h3><p>${x.entity_type==='jdg'?([x.first_name,x.last_name].filter(Boolean).join(' ')||x.contact_name||'—'):typeLabel(x.entity_type)}</p></div><span class="entity-pill">${typeLabel(x.entity_type)}</span></div>
-     <div class="client-identifiers">
-       <div><span>NIP</span><b>${x.nip}</b></div>
-       <div><span>REGON</span><b>${x.regon||'—'}</b></div>
-       ${x.entity_type==='jdg'? `<div><span>PESEL</span><b>${x.pesel||'—'}</b></div>`:`<div><span>KRS</span><b>${x.krs||'—'}</b></div>`}
-     </div>
-     <div class="client-card-actions"><button class="secondary edit-client" data-id="${x.id}">Edytuj</button>${currentUser.role!=='employee'? `<button class="danger-ghost delete-client" data-id="${x.id}">Usuń</button>`:''}</div>
-   </article>`).join(''):'<div class="empty card clients-empty">Brak klientów pasujących do wyszukiwania.</div>';
+ const draw=()=>{
+   const term=q.value.toLowerCase().trim(),entity=typeFilter.value;
+   const filtered=clients.filter(x=>(!entity||x.entity_type===entity)&&(x.name+' '+(x.first_name||'')+' '+(x.last_name||'')+' '+(x.contact_name||'')+' '+x.nip+' '+(x.regon||'')+' '+(x.krs||'')+' '+(x.pesel||'')).toLowerCase().includes(term));
+   grid.innerHTML=filtered.length?filtered.map(x=>`
+     <div class="client-list-row">
+       <div class="client-list-name"><span class="client-avatar">${initials(x.name)}</span><b>${x.name}</b></div>
+       <div><span class="entity-pill">${typeLabel(x.entity_type)}</span></div>
+       <div>${x.entity_type==='jdg'?(x.first_name||'—'):'—'}</div>
+       <div>${x.entity_type==='jdg'?(x.last_name||'—'):'—'}</div>
+       <div class="client-code">${x.nip||'—'}</div>
+       <div class="client-code">${x.regon||'—'}</div>
+       <div class="client-code">${x.entity_type==='jdg'?(x.pesel||'—'):(x.krs||'—')}</div>
+       <div class="client-row-actions"><button class="secondary edit-client" data-id="${x.id}">Edytuj</button>${currentUser.role!=='employee'? `<button class="danger-ghost delete-client" data-id="${x.id}">Usuń</button>`:''}</div>
+     </div>`).join(''):'<div class="empty clients-empty">Brak klientów pasujących do filtrów.</div>';
    document.querySelectorAll('.edit-client').forEach(b=>b.onclick=()=>openEdit(Number(b.dataset.id)));
    document.querySelectorAll('.delete-client').forEach(b=>b.onclick=async()=>{if(!confirm('Usunąć tego klienta?'))return;await api('/api/clients?id='+b.dataset.id,{method:'DELETE'});await clientsView()});
  };
@@ -277,7 +294,7 @@ async function clientsView(){
  };
  const openNew=()=>{form.reset();form.id.value='';setEntity('jdg');$('#gusStatus').classList.add('hidden');$('#clientFormTitle').textContent='Nowy klient';panel.classList.remove('hidden')};
  const openEdit=id=>{const x=clients.find(v=>Number(v.id)===id);if(!x)return;form.id.value=x.id;form.name.value=x.name;form.nip.value=x.nip||'';form.regon.value=x.regon||'';form.first_name.value=x.first_name||'';form.last_name.value=x.last_name||'';form.pesel.value=x.pesel||'';form.krs.value=x.krs||'';setEntity(x.entity_type);$('#gusStatus').classList.add('hidden');$('#clientFormTitle').textContent='Edytuj klienta';panel.classList.remove('hidden')};
- $('#openClientForm').onclick=openNew;$('#closeClientForm').onclick=()=>panel.classList.add('hidden');q.oninput=draw;
+ $('#openClientForm').onclick=openNew;$('#closeClientForm').onclick=()=>panel.classList.add('hidden');q.oninput=draw;typeFilter.onchange=draw;
  document.querySelectorAll('[data-entity]').forEach(b=>b.onclick=()=>setEntity(b.dataset.entity));
  document.querySelectorAll('[data-gus]').forEach(b=>b.onclick=async()=>{
    const kind=b.dataset.gus,val=String(form[kind].value||'').replace(/\D/g,''),status=$('#gusStatus');
