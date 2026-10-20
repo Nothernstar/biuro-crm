@@ -697,3 +697,32 @@ button.reminder-row:hover{background:#fff}
 #addManualReminder::before{content:"＋";font-size:15px;line-height:1;font-weight:900}
 #addManualReminder:hover{transform:translateY(-1px);box-shadow:0 14px 28px rgba(239,51,64,.22)}
 #addManualReminder:active{transform:translateY(0)}
+
+/* Change history as a clean vertical list */
+.history-list{display:grid;grid-template-columns:1fr;gap:8px;margin-top:12px}
+.history-list-row{
+  display:grid;
+  grid-template-columns:40px minmax(0,1fr) auto 32px;
+  align-items:center;
+  gap:12px;
+  background:#fff;
+  border:1px solid var(--line);
+  border-radius:11px;
+  padding:12px 14px;
+}
+.history-list-icon{
+  width:34px;height:34px;border-radius:9px;
+  background:#fff0f1;color:var(--red);
+  display:grid;place-items:center;font-weight:850;
+}
+.history-list-content{min-width:0}
+.history-list-content b{display:block;font-size:11px}
+.history-list-content span{
+  display:block;margin-top:3px;font-size:9px;color:var(--muted);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.history-list-row time{font-size:9px;color:var(--muted);white-space:nowrap}
+@media(max-width:700px){
+  .history-list-row{grid-template-columns:36px minmax(0,1fr) 30px}
+  .history-list-row time{grid-column:2;grid-row:2}
+}
