@@ -11,7 +11,6 @@ const acquisitionDefaults=[
 ];
 
 const onboardingDefaults=[
-  'Wysłano maila z kontaktem do opiekuna',
   'Dodanie kanału na Slacku',
   'Ustalenie sposobu wymiany dokumentów',
   'Zestawienie klientów',
@@ -60,6 +59,10 @@ export default async function handler(req,res){
 
     if(req.method==='GET'){
       await sql`
+        DELETE FROM lead_onboarding_items
+        WHERE lead_id=${leadId} AND title='Wysłano maila z kontaktem do opiekuna'
+      `;
+      await sql`
         UPDATE lead_onboarding_items
         SET title='Zebranie danych do umowy',updated_at=NOW()
         WHERE lead_id=${leadId} AND title='Dane do umowy'
@@ -69,12 +72,6 @@ export default async function handler(req,res){
         SET title='Podpisana umowa',updated_at=NOW()
         WHERE lead_id=${leadId} AND title='Umowa podpisana'
       `;
-      await sql`
-        UPDATE lead_onboarding_items
-        SET title='Wysłano maila z kontaktem do opiekuna',updated_at=NOW()
-        WHERE lead_id=${leadId} AND title='Wysłano maila z kontaktem do opiekuna'
-      `;
-
       const existingItems=await sql`
         SELECT id,title FROM lead_onboarding_items WHERE lead_id=${leadId}
       `;
