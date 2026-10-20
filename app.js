@@ -1,5 +1,5 @@
 const stages=['Nowy lead','Do kontaktu','Kontakt wykonany','Kwalifikacja','Oferta','Follow-up','Wygrany','Przegrany'];
-let leads=[],view='dashboard',currentUser=null,pendingOwnerFilter=null;
+let leads=[],view=localStorage.getItem('brcrm_view')||'dashboard',currentUser=null,pendingOwnerFilter=null;
 
 const $=s=>document.querySelector(s);
 const app=$('#app'),title=$('#viewTitle'),subtitle=$('#subtitle'),crumb=$('#crumb'),addLeadBtn=$('#addLead');
@@ -61,7 +61,7 @@ async function enterApp(){
  applyCurrentUser();
  authScreen.classList.add('hidden');
  appShell.classList.remove('auth-hidden');
- view='dashboard';
+ if(!labels[view]) view='dashboard';
  await render();
  await refreshNotifications();
 }
@@ -112,6 +112,7 @@ $('#logoutBtn').onclick=async()=>{await api('/api/auth',{method:'POST',body:JSON
 
 async function render(){
  if(!currentUser)return;
+ localStorage.setItem('brcrm_view',view);
  document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active',b.dataset.view===view));
  const [t,s]=labels[view]||[view,''];title.textContent=t;subtitle.textContent=s;
  crumb.textContent=(['dashboard','stats','users','history','reminders','emails'].includes(view)?'OGÓLNE / ':'CRM / ')+t;
@@ -177,7 +178,7 @@ async function dashboard(){
 function clientRow(l,fav=false){return `<div class="client-row"><span class="avatar-mini">${initials(l.company)}</span><div><b>${l.company}</b><small>${l.contact||l.stage}</small></div><span class="star">${fav?'★':'☆'}</span></div>`}
 function activityRow(r){return `<div class="activity-row"><span class="activity-dot"></span><span class="activity-time">${new Date(r.created_at).toLocaleTimeString('pl-PL',{hour:'2-digit',minute:'2-digit'})}</span><span class="activity-icon">●</span><div><b>${r.title}</b><small>${r.detail||''}</small></div><i>•••</i></div>`}
 function actionTile(action,icon,label,desc,active=false){return `<button class="action-tile ${active?'highlight':''}" data-action="${action}"><span>${icon}</span><div><b>${label}</b><small>${desc}</small></div></button>`}
-function bindDashboardActions(){document.querySelectorAll('[data-view-link]').forEach(b=>b.onclick=()=>{view=b.dataset.viewLink;render()});document.querySelectorAll('[data-action]').forEach(b=>b.onclick=()=>{const a=b.dataset.action;if(a==='new-lead')return $('#modal').classList.remove('hidden');const map={task:'reminders',meeting:'reminders',message:'emails',onboarding:'clients',docs:'notes',offer:'offers',note:'notes',contact:'leads'};view=map[a]||'dashboard';render()})}
+function bindDashboardActions(){document.querySelectorAll('[data-view-link]').forEach(b=>b.onclick=()=>{view=b.dataset.viewLink;localStorage.setItem('brcrm_view',view);render()});document.querySelectorAll('[data-action]').forEach(b=>b.onclick=()=>{const a=b.dataset.action;if(a==='new-lead')return $('#modal').classList.remove('hidden');const map={task:'reminders',meeting:'reminders',message:'emails',onboarding:'clients',docs:'notes',offer:'offers',note:'notes',contact:'leads'};view=map[a]||'dashboard';render()})}
 
 async function statsView(){
  const base=await api('/api/stats'),owners=base.owners.map(x=>x.owner);
@@ -342,7 +343,7 @@ $('#employeeAllLeads').onclick=()=>{employeePanel.classList.add('hidden');pendin
 document.querySelectorAll('[data-employee-action]').forEach(b=>b.onclick=()=>{employeePanel.classList.add('hidden');const a=b.dataset.employeeAction;if(a==='leads'){pendingOwnerFilter=currentEmployeeName();view='leads'}if(a==='stats'){pendingOwnerFilter=currentEmployeeName();view='stats'}if(a==='reminders')view='reminders';render()});
 document.addEventListener('click',e=>{if(!e.target.closest('.notification-wrap'))notificationPanel.classList.add('hidden');if(!e.target.closest('.employee-wrap'))employeePanel.classList.add('hidden')});
 
-document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{view=b.dataset.view;render()});
+document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{view=b.dataset.view;localStorage.setItem('brcrm_view',view);render()});
 const modal=$('#modal');addLeadBtn.onclick=()=>modal.classList.remove('hidden');$('#closeModal').onclick=()=>modal.classList.add('hidden');
 $('#leadForm').onsubmit=async e=>{e.preventDefault();const d=Object.fromEntries(new FormData(e.target));if(currentUser.role==='employee')d.owner=currentEmployeeName();try{await api('/api/leads',{method:'POST',body:JSON.stringify({...d,mrr:Number(d.mrr)||0,stage:'Nowy lead'})});e.target.reset();modal.classList.add('hidden');await api('/api/modules',{method:'POST',body:JSON.stringify({module:'history',title:'Dodano lead',detail:d.company})}).catch(()=>{});await render();await refreshNotifications()}catch(err){alert(err.message)}};
 $('#globalSearch').oninput=async e=>{const q=e.target.value.trim();if(q.length<2)return;try{await loadLeads();const base=currentUser.role==='employee'?leads.filter(l=>l.owner===currentEmployeeName()):leads;if(base.some(l=>(l.company+' '+l.contact+' '+l.email+' '+l.owner).toLowerCase().includes(q.toLowerCase()))){view='leads';await render();const inp=$('#q');if(inp){inp.value=q;inp.dispatchEvent(new Event('input'))}}}catch{}};
