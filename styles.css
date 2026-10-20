@@ -666,3 +666,12 @@ button.reminder-row:hover{background:#fff}
   .lead-detail-badges{justify-content:flex-start}
   .reminders-head{align-items:flex-start;flex-direction:column}
 }
+
+/* Lead process phase tabs */
+.lead-phase-tabs{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap}
+.lead-phase-tab{border:1px solid var(--line);background:#fff;color:#596173;border-radius:10px;padding:9px 12px;font-size:10px;font-weight:850;cursor:pointer}
+.lead-phase-tab span{display:inline-grid;place-items:center;min-width:34px;height:20px;margin-left:6px;padding:0 6px;border-radius:999px;background:#f1f3f7;font-size:8px}
+.lead-phase-tab.active{background:#fff1f2;border-color:#ffc5ca;color:var(--red)}
+.lead-phase-tab.active span{background:#ffe3e6;color:var(--red)}
+.lead-phase-caption{margin:0 0 10px;color:var(--muted);font-size:9px;line-height:1.45}
+@media(max-width:640px){.lead-phase-tabs{flex-direction:column}.lead-phase-tab{width:100%;text-align:left}}
