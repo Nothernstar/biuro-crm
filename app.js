@@ -125,6 +125,7 @@ async function render(){
    if(view==='dashboard')return await dashboard();
    if(view==='stats')return await statsView();
    if(view==='users')return await usersView();
+   if(view==='reminders')return await remindersView();
    if(view==='clients')return await clientsView();
    if(view==='meetings')return await meetingsView();
    if(view==='clientDetail')return await clientDetailView();
@@ -671,6 +672,9 @@ async function leadDetailView(){
              ?`<input value="${safe(lead.owner||currentEmployeeName())}" disabled>`
              :`<select id="leadOwnerSelect"><option value="Nieprzypisany">Nieprzypisany</option>${team.map(u=>`<option value="${safe(u.full_name)}" ${lead.owner===u.full_name?'selected':''}>${safe(u.full_name)}</option>`).join('')}</select>`}
          </label>
+         <label>Przypomnij się, jeśli brak kontaktu
+           <input id="leadFollowupDate" type="date" value="${lead.followup||''}">
+         </label>
        </div>
      </section>
 
@@ -788,6 +792,20 @@ async function leadDetailView(){
      await api('/api/leads',{method:'PATCH',body:JSON.stringify({id:Number(lead.id),owner:e.target.value})});
      lead.owner=e.target.value;
      const refreshed=await api('/api/lead-process?lead_id='+lead.id);events=refreshed.events||events;drawTimeline();
+   }catch(err){alert(err.message)}
+ };
+ $('#leadFollowupDate').onchange=async e=>{
+   try{
+     const updated=await api('/api/leads',{method:'PATCH',body:JSON.stringify({id:Number(lead.id),followup:e.target.value})});
+     lead.followup=updated.followup;
+     await api('/api/lead-process',{method:'POST',body:JSON.stringify({
+       lead_id:Number(lead.id),
+       action:'add_event',
+       title:e.target.value?'Ustawiono przypomnienie o braku kontaktu':'Usunięto termin przypomnienia',
+       detail:e.target.value?new Date(e.target.value+'T12:00:00').toLocaleDateString('pl-PL'):''
+     })}).catch(()=>{});
+     const refreshed=await api('/api/lead-process?lead_id='+lead.id);events=refreshed.events||events;drawTimeline();
+     await refreshNotifications();
    }catch(err){alert(err.message)}
  };
 
@@ -969,6 +987,70 @@ async function meetingsView(){
  drawCalendar();
 }
 
+async function remindersView(){
+ await loadLeads();
+ const manual=await api('/api/modules?module=reminders').catch(()=>[]);
+ const today=new Date().toISOString().slice(0,10);
+ const base=currentUser.role==='employee'?leads.filter(l=>l.owner===currentEmployeeName()):leads;
+ const leadReminders=base.filter(l=>l.followup&&!['Wygrany','Przegrany'].includes(l.stage))
+   .map(l=>({
+     kind:'lead',
+     id:l.id,
+     title:l.company,
+     detail:'Przypomnij się w sprawie braku kontaktu',
+     date:l.followup,
+     owner:l.owner||'Nieprzypisany',
+     overdue:l.followup<today
+   }))
+   .sort((a,b)=>String(a.date).localeCompare(String(b.date)));
+
+ app.innerHTML=`
+ <div class="reminders-head">
+   <div><h2>Przypomnienia</h2><p>Terminy follow-upów leadów oraz ręczne przypomnienia.</p></div>
+   <button class="secondary" id="addManualReminder">+ Dodaj ręczne przypomnienie</button>
+ </div>
+ <div class="reminders-layout">
+   <section class="reminders-card">
+     <div class="reminders-section-title"><h3>Brak kontaktu / follow-up</h3><span>${leadReminders.length}</span></div>
+     <div class="reminders-list">
+       ${leadReminders.length?leadReminders.map(r=>`
+         <button type="button" class="reminder-row ${r.overdue?'is-overdue':''}" data-reminder-lead="${r.id}">
+           <span class="reminder-date"><b>${new Date(r.date+'T12:00:00').toLocaleDateString('pl-PL',{day:'2-digit',month:'2-digit'})}</b><small>${new Date(r.date+'T12:00:00').getFullYear()}</small></span>
+           <span class="reminder-copy"><b>${r.title}</b><small>${r.detail} • ${r.owner}</small></span>
+           <span class="reminder-state">${r.overdue?'Po terminie':r.date===today?'Dzisiaj':'Zaplanowane'}</span>
+         </button>`).join(''):'<div class="notes-empty">Brak zaplanowanych follow-upów.</div>'}
+     </div>
+   </section>
+
+   <section class="reminders-card">
+     <div class="reminders-section-title"><h3>Ręczne przypomnienia</h3><span>${manual.length}</span></div>
+     <div class="reminders-list">
+       ${manual.length?manual.map(r=>`
+         <div class="reminder-row manual">
+           <span class="reminder-date"><b>•</b></span>
+           <span class="reminder-copy"><b>${r.title}</b><small>${r.detail||''}</small></span>
+           <button type="button" class="delete-item" data-id="${r.id}">×</button>
+         </div>`).join(''):'<div class="notes-empty">Brak ręcznych przypomnień.</div>'}
+     </div>
+   </section>
+ </div>`;
+
+ document.querySelectorAll('[data-reminder-lead]').forEach(b=>b.onclick=()=>{
+   selectedLeadId=Number(b.dataset.reminderLead);
+   localStorage.setItem('brcrm_lead_id',String(selectedLeadId));
+   view='leadDetail';localStorage.setItem('brcrm_view',view);render();
+ });
+ document.querySelectorAll('.delete-item').forEach(b=>b.onclick=async()=>{
+   await api('/api/modules?module=reminders&id='+b.dataset.id,{method:'DELETE'});await remindersView();
+ });
+ $('#addManualReminder').onclick=async()=>{
+   const t=prompt('Nazwa przypomnienia:');if(!t)return;
+   const d=prompt('Opis / termin:')||'';
+   await api('/api/modules',{method:'POST',body:JSON.stringify({module:'reminders',title:t,detail:d})});
+   await remindersView();
+ };
+}
+
 async function genericModule(key){
  const rows=await api('/api/modules?module='+encodeURIComponent(key));app.innerHTML=`<div class="module-actions"><button class="secondary" id="addModule">+ Dodaj</button><input id="moduleSearch" placeholder="Szukaj..."></div><div class="module-grid" id="moduleGrid"></div>`;
  const draw=()=>{const q=$('#moduleSearch').value.toLowerCase();$('#moduleGrid').innerHTML=rows.filter(r=>(r.title+' '+r.detail+' '+r.status).toLowerCase().includes(q)).map(r=>`<div class="module-card"><div class="module-icon">#</div><div><b>${r.title}</b><span>${r.detail||r.status||''}</span></div><button class="delete-item" data-id="${r.id}">×</button></div>`).join('')||'<div class="empty card">Brak danych.</div>';document.querySelectorAll('.delete-item').forEach(b=>b.onclick=async()=>{await api('/api/modules?module='+encodeURIComponent(key)+'&id='+b.dataset.id,{method:'DELETE'});await render()})};
@@ -980,13 +1062,13 @@ function readNotifications(){try{return new Set(JSON.parse(localStorage.getItem(
 function saveReadNotifications(set){localStorage.setItem('brcrm.readNotifications',JSON.stringify([...set]))}
 async function buildNotifications(){
  await loadLeads();const reminders=await api('/api/modules?module=reminders').catch(()=>[]),today=new Date().toISOString().slice(0,10),base=currentUser.role==='employee'?leads.filter(l=>l.owner===currentEmployeeName()):leads,items=[];
- base.forEach(l=>{if(l.followup&&l.followup<today&&!['Wygrany','Przegrany'].includes(l.stage))items.push({type:'overdue',id:l.id,title:'Zaległy follow-up',detail:l.company,date:l.followup,view:'leads',priority:3});if(l.followup===today&&!['Wygrany','Przegrany'].includes(l.stage))items.push({type:'today',id:l.id,title:'Follow-up na dziś',detail:l.company,date:l.followup,view:'leads',priority:2});if((!l.owner||l.owner==='Nieprzypisany')&&currentUser.role!=='employee'&&!['Wygrany','Przegrany'].includes(l.stage))items.push({type:'owner',id:l.id,title:'Lead bez opiekuna',detail:l.company,date:l.created_at,view:'leads',priority:2})});
+ base.forEach(l=>{if(l.followup&&l.followup<today&&!['Wygrany','Przegrany'].includes(l.stage))items.push({type:'overdue',id:l.id,title:'Zaległy follow-up',detail:l.company,date:l.followup,view:'leadDetail',priority:3});if(l.followup===today&&!['Wygrany','Przegrany'].includes(l.stage))items.push({type:'today',id:l.id,title:'Follow-up na dziś',detail:l.company,date:l.followup,view:'leadDetail',priority:2});if((!l.owner||l.owner==='Nieprzypisany')&&currentUser.role!=='employee'&&!['Wygrany','Przegrany'].includes(l.stage))items.push({type:'owner',id:l.id,title:'Lead bez opiekuna',detail:l.company,date:l.created_at,view:'leads',priority:2})});
  reminders.slice(0,10).forEach(r=>items.push({type:'reminder',id:r.id,title:r.title||'Przypomnienie',detail:r.detail||'',date:r.created_at,view:'reminders',priority:1}));
  return items.sort((a,b)=>b.priority-a.priority).slice(0,20);
 }
 async function refreshNotifications(){
  if(!currentUser)return;
- try{const items=await buildNotifications(),read=readNotifications(),unread=items.filter(n=>!read.has(notificationKey(n))).length;notificationBadge.textContent=unread>99?'99+':String(unread);notificationBadge.classList.toggle('hidden-badge',unread===0);notificationSummary.textContent=unread===1?'1 nowe':unread+' nowych';notificationList.innerHTML=items.length?items.map(n=>{const key=notificationKey(n),isRead=read.has(key);return `<button class="notification-item ${isRead?'is-read':''}" data-notification-key="${encodeURIComponent(key)}" data-notification-view="${n.view}"><span class="notification-icon">!</span><span class="notification-copy"><b>${n.title}</b><small>${n.detail}</small></span><span class="notification-time">${n.date?datePL(n.date):''}</span></button>`}).join(''):'<div class="notification-empty">Wszystko ogarnięte 🎉<small>Nie masz teraz żadnych alertów.</small></div>';notificationList.querySelectorAll('.notification-item').forEach(el=>el.onclick=()=>{const set=readNotifications();set.add(decodeURIComponent(el.dataset.notificationKey));saveReadNotifications(set);notificationPanel.classList.add('hidden');view=el.dataset.notificationView||'dashboard';render();refreshNotifications()})}catch(e){notificationBadge.textContent='!'}
+ try{const items=await buildNotifications(),read=readNotifications(),unread=items.filter(n=>!read.has(notificationKey(n))).length;notificationBadge.textContent=unread>99?'99+':String(unread);notificationBadge.classList.toggle('hidden-badge',unread===0);notificationSummary.textContent=unread===1?'1 nowe':unread+' nowych';notificationList.innerHTML=items.length?items.map(n=>{const key=notificationKey(n),isRead=read.has(key);return `<button class="notification-item ${isRead?'is-read':''}" data-notification-key="${encodeURIComponent(key)}" data-notification-view="${n.view}"><span class="notification-icon">!</span><span class="notification-copy"><b>${n.title}</b><small>${n.detail}</small></span><span class="notification-time">${n.date?datePL(n.date):''}</span></button>`}).join(''):'<div class="notification-empty">Wszystko ogarnięte 🎉<small>Nie masz teraz żadnych alertów.</small></div>';notificationList.querySelectorAll('.notification-item').forEach(el=>el.onclick=()=>{const set=readNotifications();set.add(decodeURIComponent(el.dataset.notificationKey));saveReadNotifications(set);notificationPanel.classList.add('hidden');view=el.dataset.notificationView||'dashboard';if(view==='leadDetail'){const key=decodeURIComponent(el.dataset.notificationKey),parts=key.split(':');selectedLeadId=Number(parts[1])||null;if(selectedLeadId)localStorage.setItem('brcrm_lead_id',String(selectedLeadId))}render();refreshNotifications()})}catch(e){notificationBadge.textContent='!'}
 }
 notificationBtn.onclick=async e=>{e.stopPropagation();employeePanel.classList.add('hidden');notificationPanel.classList.toggle('hidden');if(!notificationPanel.classList.contains('hidden'))await refreshNotifications()};
 $('#markAllRead').onclick=async()=>{const items=await buildNotifications(),set=readNotifications();items.forEach(n=>set.add(notificationKey(n)));saveReadNotifications(set);await refreshNotifications()};
