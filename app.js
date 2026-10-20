@@ -21,9 +21,7 @@ const labels={
  leadDetail:['Proces leada','Onboarding, odpowiedzialności i historia procesu.'],
  offers:['Oferty','Wysłane i przygotowywane oferty.'],
  notes:['Notatki','Notatki handlowe i operacyjne.'],
- automations:['Automatyzacje','Reguły automatyzujące proces sprzedaży.'],
- templates:['Szablony dokumentów','Gotowe dokumenty i wzory.'],
- sequences:['Sekwencje e-mail','Zaplanowane serie wiadomości.'],
+ templates:['Szablony e-mail','Gotowe wzory wiadomości e-mail.'],
  integrations:['Integracje','Połączenia z zewnętrznymi usługami.'],
  settings:['Ustawienia systemu','Konfiguracja CRM.']
 };
@@ -64,6 +62,7 @@ async function enterApp(){
  authScreen.classList.add('hidden');
  appShell.classList.remove('auth-hidden');
  if(view==='pipeline')view='leads';
+ if(['automations','sequences'].includes(view))view='templates';
  if(!labels[view]) view='dashboard';
  await render();
  await refreshNotifications();
