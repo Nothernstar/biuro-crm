@@ -221,6 +221,10 @@ async function clientsView(){
        <option value="company">Spółka</option>
        <option value="foundation">Fundacja</option>
      </select>
+     <select id="clientSort" class="client-type-filter">
+       <option value="asc">Nazwa A–Z</option>
+       <option value="desc">Nazwa Z–A</option>
+     </select>
    </div>
    <button class="primary" id="openClientForm">+ Dodaj klienta</button>
  </div>
@@ -258,11 +262,13 @@ async function clientsView(){
      </form>
    </div>
  </div>`;
- const grid=$('#clientsGrid'),panel=$('#clientFormPanel'),form=$('#clientForm'),q=$('#clientSearch'),typeFilter=$('#clientTypeFilter');
+ const grid=$('#clientsGrid'),panel=$('#clientFormPanel'),form=$('#clientForm'),q=$('#clientSearch'),typeFilter=$('#clientTypeFilter'),sortSelect=$('#clientSort');
  const typeLabel=t=>t==='jdg'?'JDG':t==='company'?'Spółka':'Fundacja';
  const draw=()=>{
-   const term=q.value.toLowerCase().trim(),entity=typeFilter.value;
-   const filtered=clients.filter(x=>(!entity||x.entity_type===entity)&&(x.name+' '+(x.first_name||'')+' '+(x.last_name||'')+' '+(x.contact_name||'')+' '+x.nip+' '+(x.regon||'')+' '+(x.krs||'')+' '+(x.pesel||'')).toLowerCase().includes(term));
+   const term=q.value.toLowerCase().trim(),entity=typeFilter.value,sort=sortSelect.value;
+   const filtered=clients
+     .filter(x=>(!entity||x.entity_type===entity)&&(x.name+' '+(x.first_name||'')+' '+(x.last_name||'')+' '+(x.contact_name||'')+' '+x.nip+' '+(x.regon||'')+' '+(x.krs||'')+' '+(x.pesel||'')).toLowerCase().includes(term))
+     .sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''),'pl',{sensitivity:'base'})*(sort==='desc'?-1:1));
    grid.innerHTML=filtered.length?filtered.map(x=>`
      <div class="client-list-row">
        <div class="client-list-name"><span class="client-avatar">${initials(x.name)}</span><b>${x.name}</b></div>
@@ -294,7 +300,7 @@ async function clientsView(){
  };
  const openNew=()=>{form.reset();form.id.value='';setEntity('jdg');$('#gusStatus').classList.add('hidden');$('#clientFormTitle').textContent='Nowy klient';panel.classList.remove('hidden')};
  const openEdit=id=>{const x=clients.find(v=>Number(v.id)===id);if(!x)return;form.id.value=x.id;form.name.value=x.name;form.nip.value=x.nip||'';form.regon.value=x.regon||'';form.first_name.value=x.first_name||'';form.last_name.value=x.last_name||'';form.pesel.value=x.pesel||'';form.krs.value=x.krs||'';setEntity(x.entity_type);$('#gusStatus').classList.add('hidden');$('#clientFormTitle').textContent='Edytuj klienta';panel.classList.remove('hidden')};
- $('#openClientForm').onclick=openNew;$('#closeClientForm').onclick=()=>panel.classList.add('hidden');q.oninput=draw;typeFilter.onchange=draw;
+ $('#openClientForm').onclick=openNew;$('#closeClientForm').onclick=()=>panel.classList.add('hidden');q.oninput=draw;typeFilter.onchange=draw;sortSelect.onchange=draw;
  document.querySelectorAll('[data-entity]').forEach(b=>b.onclick=()=>setEntity(b.dataset.entity));
  document.querySelectorAll('[data-gus]').forEach(b=>b.onclick=async()=>{
    const kind=b.dataset.gus,val=String(form[kind].value||'').replace(/\D/g,''),status=$('#gusStatus');
