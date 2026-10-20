@@ -1064,13 +1064,23 @@ async function remindersView(){
 async function genericModule(key){
  const rows=await api('/api/modules?module='+encodeURIComponent(key));
  const isHistory=key==='history';
+ const isTemplates=key==='templates';
  app.innerHTML=isHistory
    ?`<div class="history-toolbar"><div class="clients-search"><span>⌕</span><input id="moduleSearch" placeholder="Szukaj w historii zmian..."></div></div>
       <div class="history-list-wrap">
         <div class="history-list-head"><span>Zmiana</span><span>Szczegóły</span><span>Data i godzina</span><span>Akcje</span></div>
         <div class="history-list" id="moduleGrid"></div>
       </div>`
-   :`<div class="module-actions"><button class="secondary" id="addModule">+ Dodaj</button><input id="moduleSearch" placeholder="Szukaj..."></div><div class="module-grid" id="moduleGrid"></div>`;
+   :isTemplates
+     ?`<div class="templates-toolbar">
+         <div class="clients-search"><span>⌕</span><input id="moduleSearch" placeholder="Szukaj w szablonach e-mail..."></div>
+         <button class="templates-add-btn" id="addModule">Dodaj szablon</button>
+       </div>
+       <div class="templates-list-wrap">
+         <div class="templates-list-head"><span>Szablon</span><span>Treść / opis</span><span>Data utworzenia</span><span>Akcje</span></div>
+         <div class="templates-list" id="moduleGrid"></div>
+       </div>`
+     :`<div class="module-actions"><button class="secondary" id="addModule">+ Dodaj</button><input id="moduleSearch" placeholder="Szukaj..."></div><div class="module-grid" id="moduleGrid"></div>`;
  const draw=()=>{
    const q=$('#moduleSearch').value.toLowerCase();
    const filtered=rows.filter(r=>(r.title+' '+r.detail+' '+r.status).toLowerCase().includes(q));
@@ -1084,12 +1094,22 @@ async function genericModule(key){
        <time class="history-date">${new Date(r.created_at).toLocaleString('pl-PL',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})}</time>
        <div class="history-actions"><button class="delete-item danger-ghost" data-id="${r.id}">Usuń</button></div>
      </div>`
+     :isTemplates?`
+     <div class="template-list-row">
+       <div class="template-list-name">
+         <span class="template-mail-icon">✉</span>
+         <div><b>${r.title}</b><small>Szablon e-mail</small></div>
+       </div>
+       <div class="template-list-detail">${r.detail||r.status||'Brak opisu'}</div>
+       <time class="template-list-date">${new Date(r.created_at).toLocaleDateString('pl-PL',{day:'2-digit',month:'2-digit',year:'numeric'})}</time>
+       <div class="template-list-actions"><button class="delete-item danger-ghost" data-id="${r.id}">Usuń</button></div>
+     </div>`
      :`<div class="module-card"><div class="module-icon">#</div><div><b>${r.title}</b><span>${r.detail||r.status||''}</span></div><button class="delete-item" data-id="${r.id}">×</button></div>`
-   ).join('')||'<div class="empty card">Brak danych.</div>';
+   ).join('')||(isTemplates?'<div class="templates-empty"><span class="template-mail-icon">✉</span><b>Brak szablonów e-mail</b><p>Dodaj pierwszy szablon, żeby mieć gotowe treści wiadomości pod ręką.</p></div>':'<div class="empty card">Brak danych.</div>');
    document.querySelectorAll('.delete-item').forEach(b=>b.onclick=async()=>{await api('/api/modules?module='+encodeURIComponent(key)+'&id='+b.dataset.id,{method:'DELETE'});await render()});
  };
  $('#moduleSearch').oninput=draw;
- if(!isHistory)$('#addModule').onclick=async()=>{const t=prompt('Nazwa / tytuł:');if(!t)return;const d=prompt('Opis / status:')||'';await api('/api/modules',{method:'POST',body:JSON.stringify({module:key,title:t,detail:d})});await render()};
+ if(!isHistory)$('#addModule').onclick=async()=>{const t=prompt(isTemplates?'Nazwa szablonu:':'Nazwa / tytuł:');if(!t)return;const d=prompt(isTemplates?'Treść lub opis szablonu:':'Opis / status:')||'';await api('/api/modules',{method:'POST',body:JSON.stringify({module:key,title:t,detail:d})});await render()};
  draw();
 }
 
