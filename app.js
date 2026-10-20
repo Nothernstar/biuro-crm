@@ -1,5 +1,5 @@
 const stages=['Nowy lead','Do kontaktu','Kontakt wykonany','Kwalifikacja','Oferta','Follow-up','Wygrany','Przegrany'];
-let leads=[],view=localStorage.getItem('brcrm_view')||'dashboard',currentUser=null,pendingOwnerFilter=null,selectedClientId=Number(localStorage.getItem('brcrm_client_id')||0)||null;
+let leads=[],view=localStorage.getItem('brcrm_view')||'dashboard',currentUser=null,pendingOwnerFilter=null,selectedClientId=Number(localStorage.getItem('brcrm_client_id')||0)||null,selectedLeadId=Number(localStorage.getItem('brcrm_lead_id')||0)||null;
 
 const $=s=>document.querySelector(s);
 const app=$('#app'),title=$('#viewTitle'),subtitle=$('#subtitle'),crumb=$('#crumb'),addLeadBtn=$('#addLead');
@@ -18,6 +18,7 @@ const labels={
  clients:['Klienci','Aktywni klienci biura rachunkowego.'],
  clientDetail:['Karta klienta','Dane księgowe i organizacyjne klienta.'],
  leads:['Leady / Potencjalni klienci','Pełna lista kontaktów sprzedażowych.'],
+ leadDetail:['Proces leada','Onboarding, odpowiedzialności i historia procesu.'],
  pipeline:['Szanse sprzedaży','Zarządzaj leadami i przesuwaj je przez kolejne etapy sprzedaży.'],
  offers:['Oferty','Wysłane i przygotowywane oferty.'],
  notes:['Notatki','Notatki handlowe i operacyjne.'],
@@ -115,7 +116,7 @@ $('#logoutBtn').onclick=async()=>{await api('/api/auth',{method:'POST',body:JSON
 async function render(){
  if(!currentUser)return;
  localStorage.setItem('brcrm_view',view);
- document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active',b.dataset.view===view||(view==='clientDetail'&&b.dataset.view==='clients')));
+ document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active',b.dataset.view===view||(view==='clientDetail'&&b.dataset.view==='clients')||(view==='leadDetail'&&b.dataset.view==='leads')));
  const [t,s]=labels[view]||[view,''];title.textContent=t;subtitle.textContent=s;
  crumb.textContent=(['dashboard','stats','users','history','reminders','emails'].includes(view)?'OGÓLNE / ':'CRM / ')+t;
  addLeadBtn.style.display=['dashboard','pipeline','leads'].includes(view)?'inline-block':'none';
@@ -129,6 +130,7 @@ async function render(){
    if(view==='clientDetail')return await clientDetailView();
    if(view==='pipeline')return await pipeline();
    if(view==='leads')return await leadTable();
+   if(view==='leadDetail')return await leadDetailView();
    return await genericModule(view);
  }catch(e){
    if(e.message==='Wymagane logowanie.'){currentUser=null;return bootAuth()}
@@ -581,7 +583,7 @@ async function leadTable(){
  </div>
  <div class="leads-list-wrap">
    <div class="leads-list-head">
-     <span>Lead</span><span>Ocena</span><span>Źródło</span><span>E-mail</span><span>Etap</span><span>Opiekun</span>
+     <span>Lead</span><span>Status</span><span>Ocena</span><span>Źródło</span><span>E-mail</span><span>Etap</span><span>Opiekun</span>
    </div>
    <div class="leads-list" id="rows"></div>
  </div>`;
@@ -598,14 +600,16 @@ async function leadTable(){
      <div class="lead-list-row">
        <div class="lead-list-main">
          <span class="lead-avatar">${initials(l.company)}</span>
-         <div><b>${l.company}</b><small>${l.note||'Brak opisu leada'}</small></div>
+         <div><button type="button" class="lead-name-link open-lead" data-id="${l.id}">${l.company}</button><small>${l.note||'Brak opisu leada'}</small></div>
        </div>
+       <div><span class="lead-result-pill result-${l.lead_result||'in_progress'}">${l.lead_result==='won'?'Pozyskany':l.lead_result==='rejected'?'Odrzucony':'W trakcie'}</span></div>
        <div><span class="lead-quality-pill quality-${(l.lead_quality||'Dobry').toLowerCase().replace('ł','l')}">${l.lead_quality||'Dobry'}</span></div>
        <div>${l.source||'—'}</div>
        <div class="lead-email">${l.email||'—'}</div>
        <div><span class="lead-stage-pill">${l.stage||'Nowy lead'}</span></div>
        <div class="lead-owner">${l.owner||'Nieprzypisany'}</div>
      </div>`).join(''):'<div class="empty leads-empty">Brak leadów pasujących do filtrów.</div>';
+   document.querySelectorAll('.open-lead').forEach(b=>b.onclick=()=>{selectedLeadId=Number(b.dataset.id);localStorage.setItem('brcrm_lead_id',String(selectedLeadId));view='leadDetail';localStorage.setItem('brcrm_view',view);render()});
  };
 
  q.oninput=draw;
@@ -614,6 +618,191 @@ async function leadTable(){
  sortSelect.onchange=draw;
  if(pendingOwnerFilter){q.value=pendingOwnerFilter;pendingOwnerFilter=null}
  draw();
+}
+async function leadDetailView(){
+ if(!selectedLeadId){
+   view='leads';localStorage.setItem('brcrm_view',view);return leadTable();
+ }
+ await loadLeads();
+ const lead=leads.find(l=>Number(l.id)===Number(selectedLeadId));
+ if(!lead){
+   selectedLeadId=null;localStorage.removeItem('brcrm_lead_id');view='leads';localStorage.setItem('brcrm_view',view);return leadTable();
+ }
+ const [process,team]=await Promise.all([
+   api('/api/lead-process?lead_id='+encodeURIComponent(selectedLeadId)),
+   api('/api/team').catch(()=>[])
+ ]);
+ let items=process.items||[],events=process.events||[];
+ const safe=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
+ const resultLabel=r=>r==='won'?'Klient pozyskany':r==='rejected'?'Lead odrzucony':'W trakcie';
+ const progress=()=>items.length?Math.round(items.filter(i=>i.is_done).length/items.length*100):0;
+
+ title.textContent=lead.company;
+ subtitle.textContent='Proces leada • '+resultLabel(lead.lead_result);
+ crumb.textContent='CRM / Leady / '+lead.company;
+
+ app.innerHTML=`
+ <div class="lead-detail-head">
+   <button class="back-client-btn" id="backToLeads">← Wróć do leadów</button>
+   <div class="lead-detail-summary">
+     <div class="lead-detail-identity">
+       <span class="lead-avatar lead-avatar-large">${initials(lead.company)}</span>
+       <div><h2>${safe(lead.company)}</h2><p>${safe(lead.email||'Brak e-maila')} • ${safe(lead.source||'Brak źródła')}</p></div>
+     </div>
+     <div class="lead-detail-badges">
+       <span class="lead-result-pill result-${lead.lead_result||'in_progress'}">${resultLabel(lead.lead_result)}</span>
+       <span class="lead-quality-pill quality-${(lead.lead_quality||'Dobry').toLowerCase().replace('ł','l')}">${safe(lead.lead_quality||'Dobry')}</span>
+     </div>
+   </div>
+ </div>
+
+ <div class="lead-process-grid">
+   <div class="lead-process-main">
+     <section class="lead-process-card">
+       <div class="lead-process-card-head">
+         <div><h3>Etap procesu</h3><p>Zmieniaj etap sprzedaży i osobę odpowiedzialną za lead.</p></div>
+       </div>
+       <div class="lead-process-controls">
+         <label>Etap
+           <select id="leadStageSelect">${stages.map(s=>`<option value="${s}" ${lead.stage===s?'selected':''}>${s}</option>`).join('')}</select>
+         </label>
+         <label>Opiekun leada
+           ${currentUser.role==='employee'
+             ?`<input value="${safe(lead.owner||currentEmployeeName())}" disabled>`
+             :`<select id="leadOwnerSelect"><option value="Nieprzypisany">Nieprzypisany</option>${team.map(u=>`<option value="${safe(u.full_name)}" ${lead.owner===u.full_name?'selected':''}>${safe(u.full_name)}</option>`).join('')}</select>`}
+         </label>
+       </div>
+     </section>
+
+     <section class="lead-process-card">
+       <div class="lead-process-card-head">
+         <div><h3>Onboarding</h3><p>Odhaczaj wykonane kroki i przypisuj odpowiedzialność.</p></div>
+         <div class="onboarding-progress"><b id="onboardingProgressText">${progress()}%</b><span>wykonano</span></div>
+       </div>
+       <div class="onboarding-progress-bar"><i id="onboardingProgressBar" style="width:${progress()}%"></i></div>
+       <div class="onboarding-list" id="onboardingList"></div>
+       <form id="addOnboardingItem" class="add-onboarding-item">
+         <input name="title" placeholder="Dodaj własny punkt onboardingu..." required>
+         <button class="secondary" type="submit">+ Dodaj punkt</button>
+       </form>
+     </section>
+
+     <section class="lead-process-card">
+       <div class="lead-process-card-head"><div><h3>Zakończenie procesu</h3><p>Oznacz rezultat dopiero, gdy onboarding jest zakończony lub lead został odrzucony.</p></div></div>
+       <label class="lead-result-note">Komentarz do wyniku<textarea id="leadResultNote" rows="3" placeholder="Np. klient zaakceptował warunki / powód odrzucenia...">${safe(lead.result_note||'')}</textarea></label>
+       <div class="lead-result-actions">
+         <button type="button" class="result-action result-progress" data-result="in_progress">W trakcie</button>
+         <button type="button" class="result-action result-won" data-result="won">✓ Klient pozyskany</button>
+         <button type="button" class="result-action result-rejected" data-result="rejected">× Lead odrzucony</button>
+       </div>
+     </section>
+   </div>
+
+   <aside class="lead-timeline-card">
+     <div class="lead-process-card-head"><div><h3>Oś czasu</h3><p>Historia zmian i wykonanych kroków.</p></div></div>
+     <form id="addTimelineEvent" class="timeline-note-form">
+       <input name="title" placeholder="Dodaj zdarzenie / notatkę..." required>
+       <input name="detail" placeholder="Szczegóły (opcjonalnie)">
+       <button class="secondary" type="submit">Dodaj do osi</button>
+     </form>
+     <div class="lead-timeline" id="leadTimeline"></div>
+   </aside>
+ </div>`;
+
+ $('#backToLeads').onclick=()=>{view='leads';localStorage.setItem('brcrm_view',view);render()};
+
+ const drawItems=()=>{
+   const p=progress();$('#onboardingProgressText').textContent=p+'%';$('#onboardingProgressBar').style.width=p+'%';
+   $('#onboardingList').innerHTML=items.map(item=>`
+     <div class="onboarding-item ${item.is_done?'is-done':''}">
+       <label class="onboarding-check"><input type="checkbox" data-onboarding-check="${item.id}" ${item.is_done?'checked':''}><span></span></label>
+       <div class="onboarding-copy"><b>${safe(item.title)}</b><small>${item.completed_at?'Wykonano: '+new Date(item.completed_at).toLocaleString('pl-PL'):'Do wykonania'}</small></div>
+       <select class="onboarding-assignee" data-onboarding-assignee="${item.id}">
+         <option value="">Nieprzypisany</option>
+         ${team.map(u=>`<option value="${u.id}" ${Number(item.assignee_user_id)===Number(u.id)?'selected':''}>${safe(u.full_name)}</option>`).join('')}
+       </select>
+       <button type="button" class="delete-onboarding-item" data-onboarding-delete="${item.id}">×</button>
+     </div>`).join('');
+
+   document.querySelectorAll('[data-onboarding-check]').forEach(el=>el.onchange=async()=>{
+     const id=Number(el.dataset.onboardingCheck);
+     try{
+       const updated=await api('/api/lead-process',{method:'PATCH',body:JSON.stringify({lead_id:Number(lead.id),id,is_done:el.checked})});
+       items=items.map(i=>Number(i.id)===id?updated:i);
+       const refreshed=await api('/api/lead-process?lead_id='+lead.id);events=refreshed.events||events;drawItems();drawTimeline();
+     }catch(e){alert(e.message);el.checked=!el.checked}
+   });
+   document.querySelectorAll('[data-onboarding-assignee]').forEach(el=>el.onchange=async()=>{
+     const id=Number(el.dataset.onboardingAssignee);
+     try{
+       const updated=await api('/api/lead-process',{method:'PATCH',body:JSON.stringify({lead_id:Number(lead.id),id,assignee_user_id:el.value?Number(el.value):null})});
+       items=items.map(i=>Number(i.id)===id?updated:i);
+       const refreshed=await api('/api/lead-process?lead_id='+lead.id);events=refreshed.events||events;drawTimeline();
+     }catch(e){alert(e.message)}
+   });
+   document.querySelectorAll('[data-onboarding-delete]').forEach(btn=>btn.onclick=async()=>{
+     if(!confirm('Usunąć ten punkt onboardingu?'))return;
+     try{
+       await api('/api/lead-process?lead_id='+lead.id+'&id='+btn.dataset.onboardingDelete,{method:'DELETE'});
+       items=items.filter(i=>String(i.id)!==btn.dataset.onboardingDelete);
+       const refreshed=await api('/api/lead-process?lead_id='+lead.id);events=refreshed.events||events;drawItems();drawTimeline();
+     }catch(e){alert(e.message)}
+   });
+ };
+
+ const drawTimeline=()=>{
+   $('#leadTimeline').innerHTML=events.length?events.map(e=>`
+     <div class="lead-timeline-item event-${safe(e.event_type)}">
+       <span class="timeline-dot"></span>
+       <div><div class="timeline-meta"><b>${safe(e.title)}</b><time>${new Date(e.occurred_at).toLocaleString('pl-PL')}</time></div>
+       ${e.detail?`<p>${safe(e.detail)}</p>`:''}<small>${safe(e.actor_name||'System')}</small></div>
+     </div>`).join(''):'<div class="notes-empty">Brak zdarzeń.</div>';
+ };
+
+ $('#addOnboardingItem').onsubmit=async e=>{
+   e.preventDefault();const fd=Object.fromEntries(new FormData(e.target));
+   try{
+     const created=await api('/api/lead-process',{method:'POST',body:JSON.stringify({lead_id:Number(lead.id),action:'add_item',title:fd.title})});
+     items=[...items,created];e.target.reset();
+     const refreshed=await api('/api/lead-process?lead_id='+lead.id);events=refreshed.events||events;drawItems();drawTimeline();
+   }catch(err){alert(err.message)}
+ };
+
+ $('#addTimelineEvent').onsubmit=async e=>{
+   e.preventDefault();const fd=Object.fromEntries(new FormData(e.target));
+   try{
+     const created=await api('/api/lead-process',{method:'POST',body:JSON.stringify({lead_id:Number(lead.id),action:'add_event',title:fd.title,detail:fd.detail})});
+     events=[created,...events];e.target.reset();drawTimeline();
+   }catch(err){alert(err.message)}
+ };
+
+ $('#leadStageSelect').onchange=async e=>{
+   try{
+     await api('/api/leads',{method:'PATCH',body:JSON.stringify({id:Number(lead.id),stage:e.target.value})});
+     lead.stage=e.target.value;
+     const refreshed=await api('/api/lead-process?lead_id='+lead.id);events=refreshed.events||events;drawTimeline();
+   }catch(err){alert(err.message)}
+ };
+ if($('#leadOwnerSelect'))$('#leadOwnerSelect').onchange=async e=>{
+   try{
+     await api('/api/leads',{method:'PATCH',body:JSON.stringify({id:Number(lead.id),owner:e.target.value})});
+     lead.owner=e.target.value;
+     const refreshed=await api('/api/lead-process?lead_id='+lead.id);events=refreshed.events||events;drawTimeline();
+   }catch(err){alert(err.message)}
+ };
+
+ document.querySelectorAll('[data-result]').forEach(btn=>btn.onclick=async()=>{
+   const result=btn.dataset.result,note=$('#leadResultNote').value.trim();
+   if(result==='won'&&progress()<100&&!confirm('Checklista nie jest jeszcze ukończona w 100%. Oznaczyć lead jako pozyskany mimo to?'))return;
+   if(result==='rejected'&&!note&&!confirm('Nie podano powodu odrzucenia. Kontynuować?'))return;
+   try{
+     const updated=await api('/api/leads',{method:'PATCH',body:JSON.stringify({id:Number(lead.id),lead_result:result,result_note:note})});
+     lead.lead_result=updated.lead_result;lead.stage=updated.stage;lead.result_note=updated.result_note;
+     await render();
+   }catch(err){alert(err.message)}
+ });
+
+ drawItems();drawTimeline();
 }
 
 async function meetingsView(){
