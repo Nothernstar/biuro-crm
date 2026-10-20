@@ -3,7 +3,7 @@ let leads=[],view='dashboard',currentUser=null,pendingOwnerFilter=null;
 
 const $=s=>document.querySelector(s);
 const app=$('#app'),title=$('#viewTitle'),subtitle=$('#subtitle'),crumb=$('#crumb'),addLeadBtn=$('#addLead');
-const authScreen=$('#authScreen'),appShell=$('#appShell'),authLoading=$('#authLoading'),loginForm=$('#loginForm'),setupForm=$('#setupForm');
+const authScreen=$('#authScreen'),appShell=$('#appShell'),authLoading=$('#authLoading'),loginForm=$('#loginForm'),setupForm=$('#setupForm'),changePasswordForm=$('#changePasswordForm');
 const notificationBtn=$('#notificationBtn'),notificationPanel=$('#notificationPanel'),notificationBadge=$('#notificationBadge'),notificationList=$('#notificationList'),notificationSummary=$('#notificationSummary');
 const employeeBtn=$('#employeeBtn'),employeePanel=$('#employeePanel'),employeeStats=$('#employeeStats'),employeeLeadList=$('#employeeLeadList');
 
@@ -55,17 +55,26 @@ function showAuthForm(kind){
  authLoading.classList.add('hidden');
  loginForm.classList.toggle('hidden',kind!=='login');
  setupForm.classList.toggle('hidden',kind!=='setup');
+ changePasswordForm.classList.toggle('hidden',kind!=='change-password');
+}
+async function enterApp(){
+ applyCurrentUser();
+ authScreen.classList.add('hidden');
+ appShell.classList.remove('auth-hidden');
+ view='dashboard';
+ await render();
+ await refreshNotifications();
 }
 async function bootAuth(){
  authScreen.classList.remove('hidden');appShell.classList.add('auth-hidden');
  authLoading.classList.remove('hidden');authLoading.textContent='Sprawdzanie systemu…';
- loginForm.classList.add('hidden');setupForm.classList.add('hidden');
+ loginForm.classList.add('hidden');setupForm.classList.add('hidden');changePasswordForm.classList.add('hidden');
  try{
    const state=await api('/api/auth');
    if(state.user){
-     currentUser=state.user;applyCurrentUser();
-     authScreen.classList.add('hidden');appShell.classList.remove('auth-hidden');
-     view='dashboard';await render();await refreshNotifications();return;
+     currentUser=state.user;
+     if(currentUser.must_change_password){showAuthForm('change-password');return}
+     await enterApp();return;
    }
    showAuthForm(state.setup_required?'setup':'login');
  }catch(e){authLoading.textContent='Nie udało się uruchomić logowania: '+e.message}
@@ -75,7 +84,9 @@ loginForm.onsubmit=async e=>{
  e.preventDefault();const d=Object.fromEntries(new FormData(loginForm)),err=$('#loginError');err.classList.add('hidden');
  try{
    const r=await api('/api/auth',{method:'POST',body:JSON.stringify({action:'login',email:d.email,password:d.password})});
-   currentUser=r.user;applyCurrentUser();authScreen.classList.add('hidden');appShell.classList.remove('auth-hidden');loginForm.reset();view='dashboard';await render();await refreshNotifications();
+   currentUser=r.user;loginForm.reset();
+   if(currentUser.must_change_password){showAuthForm('change-password');return}
+   await enterApp();
  }catch(x){err.textContent=x.message;err.classList.remove('hidden')}
 };
 setupForm.onsubmit=async e=>{
@@ -83,9 +94,20 @@ setupForm.onsubmit=async e=>{
  if(d.password!==d.password_confirm){err.textContent='Hasła nie są takie same.';err.classList.remove('hidden');return}
  try{
    const r=await api('/api/auth',{method:'POST',body:JSON.stringify({action:'setup',full_name:d.full_name,email:d.email,password:d.password})});
-   currentUser=r.user;applyCurrentUser();authScreen.classList.add('hidden');appShell.classList.remove('auth-hidden');setupForm.reset();view='dashboard';await render();await refreshNotifications();
+   currentUser=r.user;setupForm.reset();await enterApp();
  }catch(x){err.textContent=x.message;err.classList.remove('hidden')}
 };
+changePasswordForm.onsubmit=async e=>{
+ e.preventDefault();
+ const d=Object.fromEntries(new FormData(changePasswordForm)),err=$('#changePasswordError');
+ err.classList.add('hidden');
+ if(d.password!==d.password_confirm){err.textContent='Hasła nie są takie same.';err.classList.remove('hidden');return}
+ try{
+   const r=await api('/api/auth',{method:'POST',body:JSON.stringify({action:'change_password',password:d.password})});
+   currentUser=r.user;changePasswordForm.reset();await enterApp();
+ }catch(x){err.textContent=x.message;err.classList.remove('hidden')}
+};
+
 $('#logoutBtn').onclick=async()=>{await api('/api/auth',{method:'POST',body:JSON.stringify({action:'logout'})}).catch(()=>{});currentUser=null;employeePanel.classList.add('hidden');notificationPanel.classList.add('hidden');await bootAuth()};
 
 async function render(){
