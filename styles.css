@@ -267,3 +267,10 @@
     padding:22px;
   }
 }
+
+/* Improve readability of user list typography */
+.user-main b{font-size:16px}
+.user-main small{font-size:12px}
+.role-pill,.status-pill{font-size:11px}
+.last-login{font-size:11px}
+.user-edit{font-size:11px}
