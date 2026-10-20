@@ -24,6 +24,13 @@
         <button class="auth-submit">Zapisz nowe hasło i przejdź do CRM</button>
         <div id="changePasswordError" class="auth-error hidden"></div>
       </form>
+      <form id="changePasswordForm" class="auth-form hidden">
+        <div class="auth-form-head"><span class="auth-badge">Bezpieczeństwo konta</span><h2>Ustaw nowe hasło</h2><p>Administrator nadał Ci hasło tymczasowe. Zanim wejdziesz do CRM, ustaw własne hasło.</p></div>
+        <label>Nowe hasło<input name="password" type="password" minlength="8" required autocomplete="new-password"></label>
+        <label>Powtórz nowe hasło<input name="password_confirm" type="password" minlength="8" required autocomplete="new-password"></label>
+        <button class="auth-submit">Zapisz nowe hasło i przejdź do CRM</button>
+        <div id="changePasswordError" class="auth-error hidden"></div>
+      </form>
       <form id="setupForm" class="auth-form hidden">
         <div class="auth-form-head"><span class="auth-badge">Pierwsze uruchomienie</span><h2>Utwórz administratora</h2><p>To konto będzie zarządzać użytkownikami i dostępami.</p></div>
         <label>Imię i nazwisko<input name="full_name" required autocomplete="name"></label>
