@@ -14,7 +14,7 @@ export default async function handler(req,res){
 
     if(req.method==='GET'){
       const rows=await sql`
-        SELECT id,name,contact_name,first_name,last_name,entity_type,nip,pesel,krs,regon,residence_address,business_address,correspondence_address,taxation_form,vat_status,zus_form,business_start_date,cooperation_start_date,father_name,mother_name,tax_office,contact_email,service_language,settlement_frequency,client_status,created_at,updated_at
+        SELECT id,name,contact_name,first_name,last_name,entity_type,nip,pesel,krs,regon,residence_address,business_address,correspondence_address,taxation_form,vat_status,zus_form,business_start_date,cooperation_start_date,father_name,mother_name,tax_office,contact_email,service_language,settlement_frequency,client_status,source_lead_id,profile_complete,created_at,updated_at
         FROM clients
         ORDER BY created_at DESC
       `;
@@ -92,7 +92,11 @@ export default async function handler(req,res){
           ${settlementFrequency},
           ${clientStatus}
         )
-        RETURNING id,name,contact_name,first_name,last_name,entity_type,nip,pesel,krs,regon,residence_address,business_address,correspondence_address,taxation_form,vat_status,zus_form,business_start_date,cooperation_start_date,father_name,mother_name,tax_office,contact_email,service_language,settlement_frequency,client_status,created_at,updated_at
+        RETURNING id,name,contact_name,first_name,last_name,entity_type,nip,pesel,krs,regon,residence_address,business_address,correspondence_address,taxation_form,vat_status,zus_form,business_start_date,cooperation_start_date,father_name,mother_name,tax_office,contact_email,service_language,settlement_frequency,client_status,source_lead_id,profile_complete,created_at,updated_at
+      `;
+      await sql`
+        INSERT INTO client_status_events(client_id,from_status,to_status,actor_id,actor_name)
+        VALUES(${rows[0].id},NULL,${clientStatus},${Number(user.id)},${user.full_name})
       `;
       return res.status(201).json(rows[0]);
     }
@@ -162,10 +166,17 @@ export default async function handler(req,res){
           service_language=${serviceLanguage},
           settlement_frequency=${settlementFrequency},
           client_status=${clientStatus},
+          profile_complete=TRUE,
           updated_at=NOW()
         WHERE id=${id}
-        RETURNING id,name,contact_name,first_name,last_name,entity_type,nip,pesel,krs,regon,residence_address,business_address,correspondence_address,taxation_form,vat_status,zus_form,business_start_date,cooperation_start_date,father_name,mother_name,tax_office,contact_email,service_language,settlement_frequency,client_status,created_at,updated_at
+        RETURNING id,name,contact_name,first_name,last_name,entity_type,nip,pesel,krs,regon,residence_address,business_address,correspondence_address,taxation_form,vat_status,zus_form,business_start_date,cooperation_start_date,father_name,mother_name,tax_office,contact_email,service_language,settlement_frequency,client_status,source_lead_id,profile_complete,created_at,updated_at
       `;
+      if(clientStatus!==current.client_status){
+        await sql`
+          INSERT INTO client_status_events(client_id,from_status,to_status,actor_id,actor_name)
+          VALUES(${id},${current.client_status},${clientStatus},${Number(user.id)},${user.full_name})
+        `;
+      }
       return res.status(200).json(rows[0]);
     }
 
