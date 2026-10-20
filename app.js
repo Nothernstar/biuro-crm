@@ -1,8 +1,21 @@
 const stages=['Nowy lead','Do kontaktu','Kontakt wykonany','Kwalifikacja','Oferta','Follow-up','Wygrany','Przegrany'];
 let leads=[],view='dashboard';
 const app=document.querySelector('#app'),title=document.querySelector('#viewTitle'),subtitle=document.querySelector('#subtitle'),crumb=document.querySelector('#crumb'),addLeadBtn=document.querySelector('#addLead'),notificationBtn=document.querySelector('#notificationBtn'),notificationPanel=document.querySelector('#notificationPanel'),notificationBadge=document.querySelector('#notificationBadge'),notificationList=document.querySelector('#notificationList'),notificationSummary=document.querySelector('#notificationSummary'),employeeBtn=document.querySelector('#employeeBtn'),employeePanel=document.querySelector('#employeePanel'),employeeStats=document.querySelector('#employeeStats'),employeeLeadList=document.querySelector('#employeeLeadList');
-const currentEmployee='Anna Kowalczyk';
+let currentUser=null;
 let pendingOwnerFilter=null;
+const authScreen=document.querySelector('#authScreen'),appShell=document.querySelector('#appShell'),authLoading=document.querySelector('#authLoading'),loginForm=document.querySelector('#loginForm'),setupForm=document.querySelector('#setupForm');
+function roleLabel(role){return role==='admin'?'Administrator':role==='manager'?'Manager':'Pracownik'}
+function currentEmployeeName()Name(){return currentUser?.full_name||''}
+function applyCurrentUser(){
+  const name=currentUser?.full_name||'Użytkownik',role=roleLabel(currentUser?.role);
+  document.querySelector('#userName').textContent=name;
+  document.querySelector('#userRole').textContent=role;
+  document.querySelector('#userInitials').textContent=initials(name);
+  document.querySelector('#employeeName').textContent=name;
+  document.querySelector('#employeeRole').textContent=role;
+  document.querySelector('#employeeAvatar').textContent=initials(name);
+  document.querySelectorAll('[data-admin-only]').forEach(el=>el.style.display=currentUser?.role==='admin'?'flex':'none');
+}
 const labels={dashboard:['Pulpit','Najważniejsze informacje z Twojego biura rachunkowego.'],stats:['Statystyki','Wyniki całego zespołu lub wybranego opiekuna.'],users:['Użytkownicy','Zespół i role w CRM.'],history:['Historia zmian','Rejestr zmian w systemie.'],reminders:['Przypomnienia','Zadania i terminy wymagające działania.'],emails:['Wiadomości e-mail','Robocza skrzynka i status korespondencji.'],clients:['Klienci','Aktywni klienci biura rachunkowego.'],leads:['Leady / Potencjalni klienci','Pełna lista kontaktów sprzedażowych.'],pipeline:['Szanse sprzedaży','Zarządzaj leadami i przesuwaj je przez kolejne etapy sprzedaży.'],offers:['Oferty','Wysłane i przygotowywane oferty.'],notes:['Notatki','Notatki handlowe i operacyjne.'],automations:['Automatyzacje','Reguły automatyzujące proces sprzedaży.'],templates:['Szablony dokumentów','Gotowe dokumenty i wzory.'],sequences:['Sekwencje e-mail','Zaplanowane serie wiadomości.'],integrations:['Integracje','Połączenia z zewnętrznymi usługami.'],settings:['Ustawienia systemu','Konfiguracja CRM.']};
 const money=n=>new Intl.NumberFormat('pl-PL',{style:'currency',currency:'PLN',maximumFractionDigits:0}).format(n||0);
 const overdue=d=>d&&new Date(d)<new Date(new Date().toISOString().slice(0,10));
@@ -13,10 +26,10 @@ function loading(msg='Ładowanie danych…'){app.innerHTML=`<div class="loading-
 function errorCard(e){app.innerHTML=`<div class="error-card"><b>Nie udało się połączyć z bazą danych.</b><span>${e.message}</span></div>`}
 function initials(s=''){return s.split(/\s+/).filter(Boolean).slice(0,2).map(x=>x[0]).join('').toUpperCase()||'--'}
 function elapsed(iso){if(!iso)return'00:00:00';let sec=Math.max(0,Math.floor((Date.now()-new Date(iso).getTime())/1000));const h=String(Math.floor(sec/3600)).padStart(2,'0'),m=String(Math.floor(sec%3600/60)).padStart(2,'0'),s=String(sec%60).padStart(2,'0');return `${h}:${m}:${s}`}
-async function render(){document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active',b.dataset.view===view));const [t,s]=labels[view]||[view,''];title.textContent=t;subtitle.textContent=s;crumb.textContent=(['dashboard','stats','users','history','reminders','emails'].includes(view)?'OGÓLNE / ':'CRM / ')+t;addLeadBtn.style.display=['dashboard','pipeline','leads'].includes(view)?'inline-block':'none';loading();try{if(view==='dashboard')return await dashboard();if(view==='stats')return await statsView();if(view==='pipeline')return await pipeline();if(view==='leads')return await leadTable();return await genericModule(view)}catch(e){errorCard(e)}}
+async function render(){if(!currentUser)return;document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active',b.dataset.view===view));const [t,s]=labels[view]||[view,''];title.textContent=t;subtitle.textContent=s;crumb.textContent=(['dashboard','stats','users','history','reminders','emails'].includes(view)?'OGÓLNE / ':'CRM / ')+t;addLeadBtn.style.display=['dashboard','pipeline','leads'].includes(view)?'inline-block':'none';loading();try{if(view==='dashboard')return await dashboard();if(view==='stats')return await statsView();if(view==='pipeline')return await pipeline();if(view==='leads')return await leadTable();if(view==='users')return await usersView();return await genericModule(view)}catch(e){errorCard(e)}}
 async function dashboard(){await loadLeads();const stats=await api('/api/stats');const hist=await api('/api/modules?module=history').catch(()=>[]);const active=leads.find(l=>!['Wygrany','Przegrany'].includes(l.stage))||leads[0]||null;const recent=leads.slice(0,5);const won=leads.filter(l=>l.stage==='Wygrany').slice(0,5);const today=new Date().toISOString().slice(0,10);const followups=leads.filter(l=>l.followup===today).length;const offers=leads.filter(l=>['Oferta','Follow-up'].includes(l.stage)).length;
 app.innerHTML=`
-<div class="dash-head"><div><h2>Dzień dobry, Anno!</h2><p>Oto najważniejsze informacje z Twojego biura rachunkowego.</p></div><div class="date-pill">▣ ${new Date().toLocaleDateString('pl-PL',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}</div></div>
+<div class="dash-head"><div><h2>Dzień dobry, ${currentUser?.full_name?.split(' ')[0]||'!' }!</h2><p>Oto najważniejsze informacje z Twojego biura rachunkowego.</p></div><div class="date-pill">▣ ${new Date().toLocaleDateString('pl-PL',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}</div></div>
 <div class="hero-grid">
   <div class="active-lead ${active?'':'empty-state'}">
     ${active?`<div class="active-left"><div class="eyebrow">● AKTYWNY LEAD</div><div class="timer" id="liveTimer">${elapsed(active.updated_at||active.created_at)}</div><div class="timer-label">◴ Czas od ostatniej aktywności</div><div class="hero-chips"><span>▣ Ostatni kontakt: ${datePL(active.updated_at||active.created_at)}</span><span>♙ Opiekun: ${active.owner||'Nieprzypisany'}</span></div></div><div class="active-right"><div><h3>${active.company}</h3><p>${active.email||active.phone||'Brak danych kontaktowych'}</p></div><div class="stage-block"><span>Etap w sprzedaży</span><b>${active.stage}</b></div><button class="contact-btn" data-action="contact">☎ Skontaktuj się</button></div>`:`<div class="empty-lead"><b>Brak aktywnych leadów</b><span>Dodaj pierwszego leada, aby rozpocząć pracę.</span><button class="contact-btn" data-action="new-lead">+ Dodaj lead</button></div>`}
@@ -57,6 +70,69 @@ async function pipeline(){await loadLeads();app.innerHTML=`<div class="board-too
 function card(l){return `<div class="lead-card" data-id="${l.id}"><span class="more">⋮</span><h4>${l.company}</h4><p>${l.contact} • ${l.owner||'Nieprzypisany'}</p><div class="lead-price">${money(l.mrr)}</div><div class="lead-meta"><span>${l.followup||'brak terminu'} ${overdue(l.followup)?'<span class="overdue-badge">po terminie</span>':''}</span><span class="grade-dot grade-${l.grade.toLowerCase()}">${l.grade}</span></div></div>`}
 async function advance(id){const l=leads.find(x=>x.id===id),i=stages.indexOf(l.stage);if(!l||i>=stages.length-1)return;await api('/api/leads',{method:'PATCH',body:JSON.stringify({id,stage:stages[i+1]})});await render()}
 async function leadTable(){await loadLeads();app.innerHTML=`<div class="toolbar"><input id="q" placeholder="Szukaj firmy, kontaktu lub opiekuna…"><select id="stageFilter"><option value="">Wszystkie etapy</option>${stages.map(s=>`<option>${s}</option>`).join('')}</select></div><div class="table-wrap"><table><thead><tr><th>Firma</th><th>Kontakt</th><th>Opiekun</th><th>Źródło</th><th>Etap</th><th>Segment</th><th>MRR</th><th>Follow-up</th></tr></thead><tbody id="rows"></tbody></table></div>`;const draw=()=>{let q=document.querySelector('#q').value.toLowerCase(),sf=document.querySelector('#stageFilter').value;document.querySelector('#rows').innerHTML=leads.filter(l=>(!sf||l.stage===sf)&&(`${l.company} ${l.contact} ${l.owner} ${l.email}`.toLowerCase().includes(q))).map(l=>`<tr><td><b>${l.company}</b><br><small>${l.note||''}</small></td><td>${l.contact}<br><small>${l.email||''}</small></td><td>${l.owner||'Nieprzypisany'}</td><td>${l.source}</td><td>${l.stage}</td><td><span class="chip ${l.grade.toLowerCase()}">${l.grade}</span></td><td>${money(l.mrr)}</td><td class="${overdue(l.followup)?'overdue':'ok'}">${l.followup||'—'}</td></tr>`).join('')||'<tr><td colspan="8">Brak leadów. Dodaj pierwszy rekord.</td></tr>'};const q=document.querySelector('#q');q.oninput=draw;document.querySelector('#stageFilter').onchange=draw;if(pendingOwnerFilter){q.value=pendingOwnerFilter;pendingOwnerFilter=null}draw()}
+
+async function usersView(){
+  if(currentUser?.role!=='admin'){
+    app.innerHTML='<div class="error-card"><b>Brak dostępu.</b><span>Tylko administrator może zarządzać użytkownikami.</span></div>';
+    return;
+  }
+  const users=await api('/api/users');
+  app.innerHTML=`
+    <div class="users-layout">
+      <div class="card users-card">
+        <div class="users-head"><div><h3>Użytkownicy systemu</h3><p>Twórz konta, ustawiaj role i włączaj lub wyłączaj dostęp.</p></div><button class="primary" id="openUserForm">+ Dodaj użytkownika</button></div>
+        <div class="user-table">
+          ${users.map(u=>`
+            <div class="user-row">
+              <span class="user-avatar">${initials(u.full_name)}</span>
+              <div class="user-main"><b>${u.full_name}</b><small>${u.email}</small></div>
+              <span class="role-pill role-${u.role}">${roleLabel(u.role)}</span>
+              <span class="status-pill ${u.is_active?'active':'inactive'}">${u.is_active?'Aktywny':'Wyłączony'}</span>
+              <small class="last-login">${u.last_login_at?'Ostatnie logowanie: '+new Date(u.last_login_at).toLocaleString('pl-PL'):'Jeszcze się nie logował'}</small>
+              <button class="user-edit" data-user-id="${u.id}">Edytuj</button>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    </div>
+    <div class="user-form-panel hidden" id="userFormPanel">
+      <div class="user-form-card">
+        <div class="modal-head"><h2 id="userFormTitle">Nowy użytkownik</h2><button id="closeUserForm">×</button></div>
+        <form id="userForm">
+          <input type="hidden" name="id">
+          <label>Imię i nazwisko<input name="full_name" required></label>
+          <label>E-mail<input name="email" type="email" required></label>
+          <label>Rola<select name="role"><option value="employee">Pracownik</option><option value="manager">Manager</option><option value="admin">Administrator</option></select></label>
+          <label>Hasło<input name="password" type="password" minlength="8" placeholder="min. 8 znaków"></label>
+          <label class="toggle-label"><input name="is_active" type="checkbox" checked> Konto aktywne</label>
+          <button class="primary wide">Zapisz użytkownika</button>
+          <div id="userFormError" class="auth-error hidden"></div>
+        </form>
+      </div>
+    </div>`;
+  const panel=document.querySelector('#userFormPanel'),form=document.querySelector('#userForm');
+  document.querySelector('#openUserForm').onclick=()=>{panel.classList.remove('hidden');form.reset();form.is_active.checked=true;form.email.disabled=false;document.querySelector('#userFormTitle').textContent='Nowy użytkownik'};
+  document.querySelector('#closeUserForm').onclick=()=>panel.classList.add('hidden');
+  document.querySelectorAll('.user-edit').forEach(btn=>btn.onclick=()=>{
+    const u=users.find(x=>String(x.id)===btn.dataset.userId);
+    form.id.value=u.id;form.full_name.value=u.full_name;form.email.value=u.email;form.email.disabled=true;form.role.value=u.role;form.password.value='';form.is_active.checked=u.is_active;
+    document.querySelector('#userFormTitle').textContent='Edytuj użytkownika';panel.classList.remove('hidden');
+  });
+  form.onsubmit=async e=>{
+    e.preventDefault();
+    const fd=Object.fromEntries(new FormData(form));
+    const error=document.querySelector('#userFormError');error.classList.add('hidden');
+    try{
+      if(fd.id){
+        await api('/api/users',{method:'PATCH',body:JSON.stringify({id:Number(fd.id),full_name:fd.full_name,role:fd.role,is_active:form.is_active.checked,password:fd.password||undefined})});
+      }else{
+        await api('/api/users',{method:'POST',body:JSON.stringify({full_name:fd.full_name,email:fd.email,role:fd.role,password:fd.password})});
+      }
+      panel.classList.add('hidden');await render();
+    }catch(err){error.textContent=err.message;error.classList.remove('hidden')}
+  };
+}
+
 async function genericModule(key){const rows=await api('/api/modules?module='+encodeURIComponent(key));app.innerHTML=`<div class="module-actions"><button class="secondary" id="addModule">+ Dodaj</button><input id="moduleSearch" placeholder="Szukaj..."></div><div class="module-grid" id="moduleGrid"></div>`;const draw=()=>{const q=document.querySelector('#moduleSearch').value.toLowerCase();document.querySelector('#moduleGrid').innerHTML=rows.filter(r=>(r.title+' '+r.detail+' '+r.status).toLowerCase().includes(q)).map(r=>`<div class="module-card"><div class="module-icon">#</div><div><b>${r.title}</b><span>${r.detail||r.status||''}</span></div><button class="delete-item" data-id="${r.id}">×</button></div>`).join('')||'<div class="empty card">Brak danych. Dodaj pierwszy wpis.</div>';document.querySelectorAll('.delete-item').forEach(b=>b.onclick=async()=>{await api('/api/modules?module='+encodeURIComponent(key)+'&id='+b.dataset.id,{method:'DELETE'});await render()})};document.querySelector('#moduleSearch').oninput=draw;document.querySelector('#addModule').onclick=async()=>{const a=prompt('Nazwa / tytuł:');if(!a)return;const b=prompt('Opis / status:')||'';await api('/api/modules',{method:'POST',body:JSON.stringify({module:key,title:a,detail:b})});await render()};draw()}
 
 function notificationKey(n){return [n.type,n.id||'',n.title,n.date||''].join(':')}
@@ -94,7 +170,41 @@ async function refreshNotifications(){
     }).join(''):'<div class="notification-empty">Wszystko ogarnięte 🎉<small>Nie masz teraz żadnych alertów.</small></div>';
     notificationList.querySelectorAll('.notification-item').forEach(el=>el.onclick=()=>{
       const set=readNotifications();set.add(decodeURIComponent(el.dataset.notificationKey));saveReadNotifications(set);
-      notificationPanel.classList.add('hidden');view=el.dataset.notificationView||'dashboard';render();refreshNotifications();
+      notificationPanel.classList.add('hidden');view=el.dataset.notificationView||'dashboard';
+async function authStatus(){return api('/api/auth')}
+function showAuthForm(kind){
+  authLoading.classList.add('hidden');
+  loginForm.classList.toggle('hidden',kind!=='login');
+  setupForm.classList.toggle('hidden',kind!=='setup');
+}
+async function bootAuth(){
+  authScreen.classList.remove('hidden');appShell.classList.add('auth-hidden');
+  authLoading.classList.remove('hidden');loginForm.classList.add('hidden');setupForm.classList.add('hidden');
+  try{
+    const state=await authStatus();
+    if(state.user){
+      currentUser=state.user;applyCurrentUser();authScreen.classList.add('hidden');appShell.classList.remove('auth-hidden');view='dashboard';await render();await refreshNotifications();return;
+    }
+    showAuthForm(state.setup_required?'setup':'login');
+  }catch(e){authLoading.textContent='Nie udało się uruchomić logowania: '+e.message}
+}
+loginForm.onsubmit=async e=>{
+  e.preventDefault();const d=Object.fromEntries(new FormData(loginForm)),err=document.querySelector('#loginError');err.classList.add('hidden');
+  try{const r=await api('/api/auth',{method:'POST',body:JSON.stringify({action:'login',email:d.email,password:d.password})});currentUser=r.user;applyCurrentUser();authScreen.classList.add('hidden');appShell.classList.remove('auth-hidden');loginForm.reset();view='dashboard';await render();await refreshNotifications()}
+  catch(x){err.textContent=x.message;err.classList.remove('hidden')}
+};
+setupForm.onsubmit=async e=>{
+  e.preventDefault();const d=Object.fromEntries(new FormData(setupForm)),err=document.querySelector('#setupError');err.classList.add('hidden');
+  if(d.password!==d.password_confirm){err.textContent='Hasła nie są takie same.';err.classList.remove('hidden');return}
+  try{const r=await api('/api/auth',{method:'POST',body:JSON.stringify({action:'setup',full_name:d.full_name,email:d.email,password:d.password})});currentUser=r.user;applyCurrentUser();authScreen.classList.add('hidden');appShell.classList.remove('auth-hidden');setupForm.reset();view='dashboard';await render();await refreshNotifications()}
+  catch(x){err.textContent=x.message;err.classList.remove('hidden')}
+};
+document.querySelector('#logoutBtn').onclick=async()=>{
+  await api('/api/auth',{method:'POST',body:JSON.stringify({action:'logout'})}).catch(()=>{});
+  currentUser=null;employeePanel.classList.add('hidden');notificationPanel.classList.add('hidden');await bootAuth();
+};
+
+bootAuth();
     });
   }catch(e){
     notificationBadge.textContent='!';
@@ -108,11 +218,11 @@ document.addEventListener('click',e=>{if(!e.target.closest('.notification-wrap')
 async function refreshEmployeePanel(){
   try{
     await loadLeads();
-    const mine=leads.filter(l=>l.owner===currentEmployee);
+    const mine=leads.filter(l=>l.owner===currentEmployeeName());
     const today=new Date().toISOString().slice(0,10);
     const active=mine.filter(l=>!['Wygrany','Przegrany'].includes(l.stage));
     const followups=mine.filter(l=>l.followup===today).length;
-    const stats=await api('/api/stats?owner='+encodeURIComponent(currentEmployee)).catch(()=>null);
+    const stats=await api('/api/stats?owner='+encodeURIComponent(currentEmployeeName())).catch(()=>null);
     employeeStats.innerHTML=`
       <div><span>Aktywne leady</span><b>${active.length}</b></div>
       <div><span>Follow-upy dziś</span><b>${followups}</b></div>
@@ -127,7 +237,7 @@ async function refreshEmployeePanel(){
     `).join('')||'<div class="employee-empty">Brak aktywnych leadów przypisanych do Ciebie.</div>';
     employeeLeadList.querySelectorAll('[data-employee-lead]').forEach(b=>b.onclick=()=>{
       employeePanel.classList.add('hidden');
-      pendingOwnerFilter=currentEmployee;
+      pendingOwnerFilter=currentEmployeeName();
       view='leads';
       render();
     });
@@ -144,15 +254,15 @@ employeeBtn.onclick=async e=>{
 };
 document.querySelector('#employeeAllLeads').onclick=()=>{
   employeePanel.classList.add('hidden');
-  pendingOwnerFilter=currentEmployee;
+  pendingOwnerFilter=currentEmployeeName();
   view='leads';
   render();
 };
 document.querySelectorAll('[data-employee-action]').forEach(b=>b.onclick=()=>{
   employeePanel.classList.add('hidden');
   const action=b.dataset.employeeAction;
-  if(action==='leads'){pendingOwnerFilter=currentEmployee;view='leads'}
-  if(action==='stats'){pendingOwnerFilter=currentEmployee;view='stats'}
+  if(action==='leads'){pendingOwnerFilter=currentEmployeeName();view='leads'}
+  if(action==='stats'){pendingOwnerFilter=currentEmployeeName();view='stats'}
   if(action==='reminders'){view='reminders'}
   render();
 });
