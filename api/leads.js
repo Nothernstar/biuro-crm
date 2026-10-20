@@ -1,6 +1,7 @@
 import { db, ensureSchema } from '../lib/db.js';
 import { requireUser } from '../lib/auth.js';
 import { apiRateLimit } from '../lib/rate-limit.js';
+import { addHistory } from '../lib/history.js';
 
 export default async function handler(req,res){
   try{
@@ -30,6 +31,7 @@ export default async function handler(req,res){
         INSERT INTO lead_events(lead_id,event_type,title,detail,actor_id,actor_name)
         VALUES(${rows[0].id},'created','Utworzono lead',${rows[0].company},${Number(user.id)},${user.full_name})
       `;
+      await addHistory(sql,{title:'Dodano lead',detail:rows[0].company,actor:user.full_name,status:'lead_created'});
       return res.status(201).json(rows[0]);
     }
 
@@ -79,6 +81,7 @@ export default async function handler(req,res){
           INSERT INTO lead_events(lead_id,event_type,title,detail,actor_id,actor_name)
           VALUES(${id},'stage','Zmiana etapu',${current.stage+' → '+rows[0].stage},${Number(user.id)},${user.full_name})
         `;
+        await addHistory(sql,{title:'Zmieniono etap leada',detail:rows[0].company+' • '+current.stage+' → '+rows[0].stage,actor:user.full_name,status:'lead_stage'});
       }
       if(rows[0].lead_result!==current.lead_result){
         const resultTitle=rows[0].lead_result==='won'?'Onboarding zakończony sukcesem':rows[0].lead_result==='rejected'?'Lead odrzucony':'Lead przywrócony do procesu';
@@ -86,6 +89,7 @@ export default async function handler(req,res){
           INSERT INTO lead_events(lead_id,event_type,title,detail,actor_id,actor_name)
           VALUES(${id},'result',${resultTitle},${resultNote},${Number(user.id)},${user.full_name})
         `;
+        await addHistory(sql,{title:resultTitle,detail:rows[0].company+(resultNote?' • '+resultNote:''),actor:user.full_name,status:'lead_result'});
 
         if(rows[0].lead_result==='won'){
           let client=(await sql`
@@ -116,10 +120,7 @@ export default async function handler(req,res){
               INSERT INTO client_status_events(client_id,from_status,to_status,actor_id,actor_name)
               VALUES(${client.id},NULL,'active',${Number(user.id)},${user.full_name})
             `;
-            await sql`
-              INSERT INTO module_items(module,title,detail,status)
-              VALUES('history','Lead został klientem',${rows[0].company},'active')
-            `;
+            await addHistory(sql,{title:'Lead został klientem',detail:rows[0].company,actor:user.full_name,status:'lead_to_client'});
           }
         }
       }
@@ -128,14 +129,22 @@ export default async function handler(req,res){
           INSERT INTO lead_events(lead_id,event_type,title,detail,actor_id,actor_name)
           VALUES(${id},'assignment','Zmieniono opiekuna leada',${String(rows[0].owner)},${Number(user.id)},${user.full_name})
         `;
+        await addHistory(sql,{title:'Zmieniono opiekuna leada',detail:rows[0].company+' • '+String(current.owner||'Nieprzypisany')+' → '+String(rows[0].owner||'Nieprzypisany'),actor:user.full_name,status:'lead_owner'});
       }
+      const baseFields=['company','contact','email','phone','source','mrr','grade','lead_quality','note','followup'];
+      const edited=baseFields.some(k=>b[k]!==undefined && String(rows[0][k]??'')!==String(current[k]??''));
+      if(edited)await addHistory(sql,{title:'Edytowano lead',detail:rows[0].company,actor:user.full_name,status:'lead_updated'});
       return res.status(200).json(rows[0]);
     }
 
     if(req.method==='DELETE'){
       if(ownOnly)return res.status(403).json({error:'Pracownik nie może usuwać leadów.'});
       const id=Number(req.query.id);if(!id)return res.status(400).json({error:'Brak id.'});
-      await sql`DELETE FROM leads WHERE id=${id}`;return res.status(204).end();
+      const current=(await sql`SELECT company FROM leads WHERE id=${id} LIMIT 1`)[0];
+      if(!current)return res.status(404).json({error:'Nie znaleziono leada.'});
+      await sql`DELETE FROM leads WHERE id=${id}`;
+      await addHistory(sql,{title:'Usunięto lead',detail:current.company,actor:user.full_name,status:'lead_deleted'});
+      return res.status(204).end();
     }
 
     return res.status(405).json({error:'Method not allowed'});
