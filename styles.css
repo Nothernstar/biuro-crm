@@ -274,3 +274,16 @@
 .role-pill,.status-pill{font-size:11px}
 .last-login{font-size:11px}
 .user-edit{font-size:11px}
+
+.password-admin-field{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:8px;align-items:center}
+.password-admin-field input{min-width:0}
+.password-admin-field button{height:56px;border:1px solid var(--line);background:#fff;border-radius:12px;padding:0 12px;font-size:11px;font-weight:750;color:#4d5668;cursor:pointer}
+.password-admin-field button:hover{border-color:#ffc7cc;color:var(--red);background:#fff7f8}
+.password-help{display:block;margin-top:7px;color:var(--muted);font-size:10px;font-weight:500;line-height:1.45}
+.temp-password-card{width:min(560px,100%);background:#fff;border-radius:22px;padding:28px;box-shadow:0 30px 90px rgba(20,30,50,.24)}
+.temp-password-card h2{font-size:24px;margin:10px 0 8px}
+.temp-password-card p{font-size:12px;line-height:1.55;color:var(--muted);margin:0 0 18px}
+.temp-password-value{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;background:#fff7f8;border:1px solid #ffd3d7;border-radius:12px;padding:10px}
+.temp-password-value code{font-size:17px;font-weight:800;letter-spacing:.5px;overflow:auto}
+.temp-password-value button{border:0;background:var(--red);color:#fff;border-radius:9px;padding:10px 12px;font-size:11px;font-weight:800;cursor:pointer}
+@media(max-width:640px){.password-admin-field{grid-template-columns:1fr 1fr}.password-admin-field input{grid-column:1/-1}.temp-password-value{grid-template-columns:1fr}.temp-password-value button{width:100%}}
