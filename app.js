@@ -19,7 +19,6 @@ const labels={
  clientDetail:['Karta klienta','Dane księgowe i organizacyjne klienta.'],
  leads:['Leady / Potencjalni klienci','Pełna lista kontaktów sprzedażowych.'],
  leadDetail:['Proces leada','Onboarding, odpowiedzialności i historia procesu.'],
- pipeline:['Szanse sprzedaży','Zarządzaj leadami i przesuwaj je przez kolejne etapy sprzedaży.'],
  offers:['Oferty','Wysłane i przygotowywane oferty.'],
  notes:['Notatki','Notatki handlowe i operacyjne.'],
  automations:['Automatyzacje','Reguły automatyzujące proces sprzedaży.'],
@@ -64,6 +63,7 @@ async function enterApp(){
  applyCurrentUser();
  authScreen.classList.add('hidden');
  appShell.classList.remove('auth-hidden');
+ if(view==='pipeline')view='leads';
  if(!labels[view]) view='dashboard';
  await render();
  await refreshNotifications();
@@ -119,7 +119,7 @@ async function render(){
  document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active',b.dataset.view===view||(view==='clientDetail'&&b.dataset.view==='clients')||(view==='leadDetail'&&b.dataset.view==='leads')));
  const [t,s]=labels[view]||[view,''];title.textContent=t;subtitle.textContent=s;
  crumb.textContent=(['dashboard','stats','users','history','reminders','emails'].includes(view)?'OGÓLNE / ':'CRM / ')+t;
- addLeadBtn.style.display=['dashboard','pipeline','leads'].includes(view)?'inline-block':'none';
+ addLeadBtn.style.display=['dashboard','leads'].includes(view)?'inline-block':'none';
  loading();
  try{
    if(view==='dashboard')return await dashboard();
@@ -129,7 +129,6 @@ async function render(){
    if(view==='clients')return await clientsView();
    if(view==='meetings')return await meetingsView();
    if(view==='clientDetail')return await clientDetailView();
-   if(view==='pipeline')return await pipeline();
    if(view==='leads')return await leadTable();
    if(view==='leadDetail')return await leadDetailView();
    return await genericModule(view);
@@ -552,14 +551,6 @@ async function clientDetailView(){
  };
  drawNotes();
 }
-
-async function pipeline(){
- await loadLeads();app.innerHTML=`<div class="board-tools"><input id="boardSearch" placeholder="Szukaj szansy..."><select id="boardSource"><option value="">Wszystkie źródła</option>${[...new Set(leads.map(l=>l.source))].map(s=>`<option>${s}</option>`).join('')}</select><select id="boardGrade"><option value="">Każdy segment</option><option>A</option><option>B</option><option>C</option></select></div><div id="pipelineBoard" class="pipeline"></div>`;
- const draw=()=>{const q=$('#boardSearch').value.toLowerCase(),src=$('#boardSource').value,gr=$('#boardGrade').value,base=currentUser.role==='employee'?leads.filter(l=>l.owner===currentEmployeeName()):leads,filtered=base.filter(l=>(!src||l.source===src)&&(!gr||l.grade===gr)&&(`${l.company} ${l.contact} ${l.owner}`.toLowerCase().includes(q)));$('#pipelineBoard').innerHTML=stages.map(s=>{const ls=filtered.filter(l=>l.stage===s),total=ls.reduce((a,l)=>a+Number(l.mrr||0),0);return `<div class="column"><div class="column-head"><div>${s}<span class="column-total">${money(total)} MRR</span></div><span class="count">${ls.length}</span></div><div class="column-body">${ls.map(card).join('')||'<div class="empty">Brak szans</div>'}</div></div>`}).join('');document.querySelectorAll('.lead-card').forEach(el=>el.onclick=()=>advance(Number(el.dataset.id)))};
- ['#boardSearch','#boardSource','#boardGrade'].forEach(sel=>$(sel).addEventListener('input',draw));draw();
-}
-function card(l){return `<div class="lead-card" data-id="${l.id}"><span class="more">⋮</span><h4>${l.company}</h4><p>${l.contact} • ${l.owner||'Nieprzypisany'}</p><div class="lead-price">${money(l.mrr)}</div><div class="lead-meta"><span>${l.followup||'brak terminu'} ${overdue(l.followup)?'<span class="overdue-badge">po terminie</span>':''}</span><span class="grade-dot grade-${l.grade.toLowerCase()}">${l.grade}</span></div></div>`}
-async function advance(id){const l=leads.find(x=>x.id===id),i=stages.indexOf(l.stage);if(!l||i>=stages.length-1)return;await api('/api/leads',{method:'PATCH',body:JSON.stringify({id,stage:stages[i+1]})});await render()}
 
 async function leadTable(){
  await loadLeads();
