@@ -145,7 +145,6 @@ async function dashboard(){
  const recent=mine.slice(0,5),won=mine.filter(l=>l.stage==='Wygrany').slice(0,5);
  const today=new Date().toISOString().slice(0,10);
  const followups=mine.filter(l=>l.followup===today).length;
- const offers=mine.filter(l=>['Oferta','Follow-up'].includes(l.stage)).length;
  app.innerHTML=`
  <div class="dash-head"><div><h2>Dzień dobry, ${currentUser.full_name.split(' ')[0]}!</h2><p>Oto najważniejsze informacje z Twojego biura rachunkowego.</p></div><div class="date-pill">▣ ${new Date().toLocaleDateString('pl-PL',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}</div></div>
  <div class="hero-grid">
@@ -164,7 +163,6 @@ async function dashboard(){
  <div class="kpis premium">
   <div class="kpi-card pink"><div class="kpi-icon">♧</div><div><span>Leady</span><b>${stats.totals.total}</b><small>w bazie</small></div></div>
   <div class="kpi-card peach"><div class="kpi-icon">▣</div><div><span>Follow-upy dziś</span><b>${followups}</b><small>na dziś</small></div></div>
-  <div class="kpi-card blue"><div class="kpi-icon">◇</div><div><span>Oferty oczekujące</span><b>${offers}</b><small>w pipeline</small></div></div>
  </div>
  <div class="bottom-grid">
   <div class="activity-card"><div class="side-title"><h3>Historia aktywności</h3><button data-view-link="history">Zobacz wszystkie →</button></div>${hist.slice(0,5).map(activityRow).join('')||'<div class="mini-empty">Brak aktywności.</div>'}</div>
