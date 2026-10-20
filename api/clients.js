@@ -1,10 +1,12 @@
 import { db, ensureSchema } from '../lib/db.js';
 import { requireUser } from '../lib/auth.js';
+import { apiRateLimit } from '../lib/rate-limit.js';
 
 const digits=value=>String(value||'').replace(/\D/g,'');
 
 export default async function handler(req,res){
   try{
+    if(!apiRateLimit(req,res)) return;
     await ensureSchema();
     const user=await requireUser(req,res);
     if(!user)return;
