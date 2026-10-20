@@ -68,7 +68,7 @@ async function enterApp(){
 async function bootAuth(){
  authScreen.classList.remove('hidden');appShell.classList.add('auth-hidden');
  authLoading.classList.remove('hidden');authLoading.textContent='Sprawdzanie systemu…';
- loginForm.classList.add('hidden');setupForm.classList.add('hidden');changePasswordForm.classList.add('hidden');
+ loginForm.classList.add('hidden');setupForm.classList.add('hidden');changePasswordForm.classList.add('hidden');changePasswordForm.classList.add('hidden');
  try{
    const state=await api('/api/auth');
    if(state.user){
@@ -97,6 +97,17 @@ setupForm.onsubmit=async e=>{
    currentUser=r.user;setupForm.reset();await enterApp();
  }catch(x){err.textContent=x.message;err.classList.remove('hidden')}
 };
+changePasswordForm.onsubmit=async e=>{
+ e.preventDefault();
+ const d=Object.fromEntries(new FormData(changePasswordForm)),err=$('#changePasswordError');
+ err.classList.add('hidden');
+ if(d.password!==d.password_confirm){err.textContent='Hasła nie są takie same.';err.classList.remove('hidden');return}
+ try{
+   const r=await api('/api/auth',{method:'POST',body:JSON.stringify({action:'change_password',password:d.password})});
+   currentUser=r.user;changePasswordForm.reset();await enterApp();
+ }catch(x){err.textContent=x.message;err.classList.remove('hidden')}
+};
+
 changePasswordForm.onsubmit=async e=>{
  e.preventDefault();
  const d=Object.fromEntries(new FormData(changePasswordForm)),err=$('#changePasswordError');
