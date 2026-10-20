@@ -606,6 +606,7 @@ async function clientDetailView(){
 
 async function leadTable(){
  await loadLeads();
+ const team=await api('/api/team').catch(()=>[]);
  app.innerHTML=`
  <div class="leads-toolbar">
    <div class="leads-toolbar-left">
@@ -696,7 +697,14 @@ async function leadTable(){
        <div>${l.source||'—'}</div>
        <div class="lead-email">${l.email||'—'}</div>
        <div><span class="lead-stage-pill">${l.stage||'Nowy lead'}</span></div>
-       <div class="lead-owner">${l.owner||'Nieprzypisany'}</div>
+       <div class="lead-owner">
+         ${currentUser.role==='employee'
+           ? `<span class="lead-owner-text">${l.owner||'Nieprzypisany'}</span>`
+           : `<select class="lead-owner-select" data-lead-owner="${l.id}">
+                <option value="Nieprzypisany" ${!l.owner||l.owner==='Nieprzypisany'?'selected':''}>Nieprzypisany</option>
+                ${team.map(u=>`<option value="${u.full_name}" ${l.owner===u.full_name?'selected':''}>${u.full_name}</option>`).join('')}
+              </select>`}
+       </div>
        <div class="lead-row-actions">
          <button type="button" class="secondary edit-lead" data-id="${l.id}">Edytuj</button>
          ${currentUser.role!=='employee'? `<button type="button" class="danger-ghost delete-lead" data-id="${l.id}">Usuń</button>`:''}
@@ -704,6 +712,16 @@ async function leadTable(){
      </div>`).join(''):'<div class="empty leads-empty">Brak leadów pasujących do filtrów.</div>';
    document.querySelectorAll('.open-lead').forEach(b=>b.onclick=()=>{selectedLeadId=Number(b.dataset.id);localStorage.setItem('brcrm_lead_id',String(selectedLeadId));view='leadDetail';localStorage.setItem('brcrm_view',view);render()});
    document.querySelectorAll('.edit-lead').forEach(b=>b.onclick=()=>openLeadEdit(Number(b.dataset.id)));
+   document.querySelectorAll('[data-lead-owner]').forEach(el=>el.onchange=async()=>{
+     const id=Number(el.dataset.leadOwner),previous=leads.find(x=>Number(x.id)===id)?.owner||'Nieprzypisany';
+     try{
+       const updated=await api('/api/leads',{method:'PATCH',body:JSON.stringify({id,owner:el.value})});
+       leads=leads.map(x=>Number(x.id)===id?updated:x);
+     }catch(e){
+       el.value=previous;
+       alert(e.message);
+     }
+   });
    document.querySelectorAll('.delete-lead').forEach(b=>b.onclick=async()=>{
      const lead=leads.find(x=>Number(x.id)===Number(b.dataset.id));
      if(!confirm('Usunąć lead „'+(lead?.company||'')+'”? Tej operacji nie można cofnąć.'))return;
