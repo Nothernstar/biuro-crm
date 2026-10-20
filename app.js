@@ -1070,13 +1070,15 @@ async function genericModule(key){
    const filtered=rows.filter(r=>(r.title+' '+r.detail+' '+r.status).toLowerCase().includes(q));
    $('#moduleGrid').innerHTML=filtered.map(r=>isHistory?`
      <div class="history-list-row">
-       <div class="history-list-icon">#</div>
+       <div class="history-list-icon">↻</div>
        <div class="history-list-content">
          <b>${r.title}</b>
-         <span>${r.detail||r.status||''}</span>
+         <span>${r.detail||r.status||'Zmiana w systemie'}</span>
        </div>
-       <time>${new Date(r.created_at).toLocaleString('pl-PL',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})}</time>
-       <button class="delete-item" data-id="${r.id}">×</button>
+       <div class="history-list-meta">
+         <time>${new Date(r.created_at).toLocaleString('pl-PL',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})}</time>
+         <button class="delete-item history-delete" data-id="${r.id}" aria-label="Usuń wpis">×</button>
+       </div>
      </div>`
      :`<div class="module-card"><div class="module-icon">#</div><div><b>${r.title}</b><span>${r.detail||r.status||''}</span></div><button class="delete-item" data-id="${r.id}">×</button></div>`
    ).join('')||'<div class="empty card">Brak danych.</div>';
