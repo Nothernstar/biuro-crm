@@ -22,7 +22,12 @@ export default async function handler(req,res){
     if(req.method==='POST'){
       const b=req.body||{};
       if(!b.company)return res.status(400).json({error:'Nazwa leada jest wymagana.'});
-      const owner=ownOnly?user.full_name:(b.owner||'Nieprzypisany');
+      let owner=String(b.owner||'Nieprzypisany');
+      if(owner!=='Nieprzypisany'){
+        const ownerUser=(await sql`SELECT full_name FROM app_users WHERE full_name=${owner} AND is_active=TRUE LIMIT 1`)[0];
+        if(!ownerUser)return res.status(400).json({error:'Wybrany opiekun nie jest aktywnym użytkownikiem.'});
+        owner=ownerUser.full_name;
+      }
       const rows=await sql`
         INSERT INTO leads(company,contact,email,phone,source,mrr,grade,lead_quality,stage,followup,note,owner)
         VALUES(${b.company},${b.contact||''},${b.email||''},${b.phone||''},${b.source||'Inne'},${Number(b.mrr)||0},${b.grade||'B'},${b.lead_quality||'Dobry'},${b.stage||'Nowy lead'},${b.followup||null},${b.note||''},${owner})
@@ -43,7 +48,15 @@ export default async function handler(req,res){
         : await sql`SELECT * FROM leads WHERE id=${id} LIMIT 1`)[0];
       if(!current)return res.status(ownOnly?403:404).json({error:ownOnly?'Brak dostępu do tego leada.':'Nie znaleziono leada.'});
 
-      const owner=ownOnly?null:(b.owner??null);
+      let owner=b.owner??null;
+      if(owner!==null){
+        owner=String(owner||'Nieprzypisany');
+        if(owner!=='Nieprzypisany'){
+          const ownerUser=(await sql`SELECT full_name FROM app_users WHERE full_name=${owner} AND is_active=TRUE LIMIT 1`)[0];
+          if(!ownerUser)return res.status(400).json({error:'Wybrany opiekun nie jest aktywnym użytkownikiem.'});
+          owner=ownerUser.full_name;
+        }
+      }
       const requestedResult=b.lead_result===undefined?current.lead_result:String(b.lead_result);
       const leadResult=['in_progress','won','rejected'].includes(requestedResult)?requestedResult:current.lead_result;
       const requestedStage=b.stage??null;
