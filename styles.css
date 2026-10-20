@@ -384,3 +384,6 @@
   .profile-owner-summary{grid-template-columns:1fr}
   .client-profile-title{align-items:flex-start}
 }
+
+.client-name-link{border:0;background:transparent;padding:0;text-align:left;font:inherit;font-size:12px;font-weight:800;color:#1f2734;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.client-name-link:hover{color:var(--red);text-decoration:underline;text-underline-offset:2px}
