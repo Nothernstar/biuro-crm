@@ -559,9 +559,61 @@ function card(l){return `<div class="lead-card" data-id="${l.id}"><span class="m
 async function advance(id){const l=leads.find(x=>x.id===id),i=stages.indexOf(l.stage);if(!l||i>=stages.length-1)return;await api('/api/leads',{method:'PATCH',body:JSON.stringify({id,stage:stages[i+1]})});await render()}
 
 async function leadTable(){
- await loadLeads();app.innerHTML=`<div class="toolbar"><input id="q" placeholder="Szukaj firmy, kontaktu lub opiekuna…"><select id="stageFilter"><option value="">Wszystkie etapy</option>${stages.map(s=>`<option>${s}</option>`).join('')}</select></div><div class="table-wrap"><table><thead><tr><th>Firma</th><th>Kontakt</th><th>Opiekun</th><th>Źródło</th><th>Etap</th><th>Segment</th><th>MRR</th><th>Follow-up</th></tr></thead><tbody id="rows"></tbody></table></div>`;
- const draw=()=>{let q=$('#q').value.toLowerCase(),sf=$('#stageFilter').value,base=currentUser.role==='employee'?leads.filter(l=>l.owner===currentEmployeeName()):leads;$('#rows').innerHTML=base.filter(l=>(!sf||l.stage===sf)&&(`${l.company} ${l.contact} ${l.owner} ${l.email}`.toLowerCase().includes(q))).map(l=>`<tr><td><b>${l.company}</b><br><small>${l.note||''}</small></td><td>${l.contact}<br><small>${l.email||''}</small></td><td>${l.owner||'Nieprzypisany'}</td><td>${l.source}</td><td>${l.stage}</td><td><span class="chip ${l.grade.toLowerCase()}">${l.grade}</span></td><td>${money(l.mrr)}</td><td class="${overdue(l.followup)?'overdue':'ok'}">${l.followup||'—'}</td></tr>`).join('')||'<tr><td colspan="8">Brak leadów.</td></tr>'};
- const q=$('#q');q.oninput=draw;$('#stageFilter').onchange=draw;if(pendingOwnerFilter){q.value=pendingOwnerFilter;pendingOwnerFilter=null}draw();
+ await loadLeads();
+ app.innerHTML=`
+ <div class="leads-toolbar">
+   <div class="leads-toolbar-left">
+     <div class="clients-search"><span>⌕</span><input id="q" placeholder="Szukaj po nazwie, e-mailu, źródle lub opiekunie..."></div>
+     <select id="stageFilter" class="client-type-filter">
+       <option value="">Wszystkie etapy</option>
+       ${stages.map(s=>`<option value="${s}">${s}</option>`).join('')}
+     </select>
+     <select id="qualityFilter" class="client-type-filter">
+       <option value="">Wszystkie oceny</option>
+       <option value="Dobry">Dobry</option>
+       <option value="Słaby">Słaby</option>
+     </select>
+     <select id="leadSort" class="client-type-filter">
+       <option value="asc">Nazwa A–Z</option>
+       <option value="desc">Nazwa Z–A</option>
+     </select>
+   </div>
+ </div>
+ <div class="leads-list-wrap">
+   <div class="leads-list-head">
+     <span>Lead</span><span>Ocena</span><span>Źródło</span><span>E-mail</span><span>Etap</span><span>Opiekun</span>
+   </div>
+   <div class="leads-list" id="rows"></div>
+ </div>`;
+
+ const q=$('#q'),stageFilter=$('#stageFilter'),qualityFilter=$('#qualityFilter'),sortSelect=$('#leadSort');
+ const draw=()=>{
+   const term=q.value.toLowerCase().trim(),sf=stageFilter.value,qf=qualityFilter.value,sort=sortSelect.value;
+   const base=currentUser.role==='employee'?leads.filter(l=>l.owner===currentEmployeeName()):leads;
+   const filtered=base
+     .filter(l=>(!sf||l.stage===sf)&&(!qf||l.lead_quality===qf)&&(`${l.company} ${l.email||''} ${l.source||''} ${l.owner||''} ${l.note||''}`.toLowerCase().includes(term)))
+     .sort((a,b)=>String(a.company||'').localeCompare(String(b.company||''),'pl',{sensitivity:'base'})*(sort==='desc'?-1:1));
+
+   $('#rows').innerHTML=filtered.length?filtered.map(l=>`
+     <div class="lead-list-row">
+       <div class="lead-list-main">
+         <span class="lead-avatar">${initials(l.company)}</span>
+         <div><b>${l.company}</b><small>${l.note||'Brak opisu leada'}</small></div>
+       </div>
+       <div><span class="lead-quality-pill quality-${(l.lead_quality||'Dobry').toLowerCase().replace('ł','l')}">${l.lead_quality||'Dobry'}</span></div>
+       <div>${l.source||'—'}</div>
+       <div class="lead-email">${l.email||'—'}</div>
+       <div><span class="lead-stage-pill">${l.stage||'Nowy lead'}</span></div>
+       <div class="lead-owner">${l.owner||'Nieprzypisany'}</div>
+     </div>`).join(''):'<div class="empty leads-empty">Brak leadów pasujących do filtrów.</div>';
+ };
+
+ q.oninput=draw;
+ stageFilter.onchange=draw;
+ qualityFilter.onchange=draw;
+ sortSelect.onchange=draw;
+ if(pendingOwnerFilter){q.value=pendingOwnerFilter;pendingOwnerFilter=null}
+ draw();
 }
 
 async function meetingsView(){
