@@ -161,10 +161,6 @@ async function dashboard(){
   ${actionTile('new-lead','♙','Dodaj lead','Wprowadź nowego potencjalnego klienta',true)}
   ${actionTile('task','✓','Dodaj zadanie','Ustaw zadanie dla siebie lub zespołu')}
   ${actionTile('meeting','▣','Umów spotkanie','Zaplanuj rozmowę z klientem')}
-  ${actionTile('message','➤','Wyślij wiadomość','Napisz e-mail do klienta')}
-  ${actionTile('onboarding','♧','Rozpocznij onboarding','Uruchom proces wdrożenia nowego klienta')}
-  ${actionTile('docs','▧','Braki dokumentów','Sprawdź brakujące dokumenty od klienta')}
-  ${actionTile('offer','◇','Wyślij ofertę','Przygotuj i wyślij ofertę współpracy')}
   ${actionTile('note','✎','Dodaj notatkę','Zapisz ważne informacje o kliencie')}
  </div>
  <div class="section-row kpi-title"><h3>Najważniejsze wskaźniki</h3><span>Ten miesiąc</span></div>
