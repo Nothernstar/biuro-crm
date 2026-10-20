@@ -1,6 +1,6 @@
 const stages=['Nowy lead','Do kontaktu','Kontakt wykonany','Kwalifikacja','Oferta','Follow-up','Wygrany','Przegrany'];
 let leads=[],view='dashboard';
-const app=document.querySelector('#app'),title=document.querySelector('#viewTitle'),subtitle=document.querySelector('#subtitle'),crumb=document.querySelector('#crumb'),addLeadBtn=document.querySelector('#addLead');
+const app=document.querySelector('#app'),title=document.querySelector('#viewTitle'),subtitle=document.querySelector('#subtitle'),crumb=document.querySelector('#crumb'),addLeadBtn=document.querySelector('#addLead'),notificationBtn=document.querySelector('#notificationBtn'),notificationPanel=document.querySelector('#notificationPanel'),notificationBadge=document.querySelector('#notificationBadge'),notificationList=document.querySelector('#notificationList'),notificationSummary=document.querySelector('#notificationSummary');
 const labels={dashboard:['Pulpit','Najważniejsze informacje z Twojego biura rachunkowego.'],stats:['Statystyki','Wyniki całego zespołu lub wybranego opiekuna.'],users:['Użytkownicy','Zespół i role w CRM.'],history:['Historia zmian','Rejestr zmian w systemie.'],reminders:['Przypomnienia','Zadania i terminy wymagające działania.'],emails:['Wiadomości e-mail','Robocza skrzynka i status korespondencji.'],clients:['Klienci','Aktywni klienci biura rachunkowego.'],leads:['Leady / Potencjalni klienci','Pełna lista kontaktów sprzedażowych.'],pipeline:['Szanse sprzedaży','Zarządzaj leadami i przesuwaj je przez kolejne etapy sprzedaży.'],offers:['Oferty','Wysłane i przygotowywane oferty.'],notes:['Notatki','Notatki handlowe i operacyjne.'],automations:['Automatyzacje','Reguły automatyzujące proces sprzedaży.'],templates:['Szablony dokumentów','Gotowe dokumenty i wzory.'],sequences:['Sekwencje e-mail','Zaplanowane serie wiadomości.'],integrations:['Integracje','Połączenia z zewnętrznymi usługami.'],settings:['Ustawienia systemu','Konfiguracja CRM.']};
 const money=n=>new Intl.NumberFormat('pl-PL',{style:'currency',currency:'PLN',maximumFractionDigits:0}).format(n||0);
 const overdue=d=>d&&new Date(d)<new Date(new Date().toISOString().slice(0,10));
@@ -56,6 +56,53 @@ function card(l){return `<div class="lead-card" data-id="${l.id}"><span class="m
 async function advance(id){const l=leads.find(x=>x.id===id),i=stages.indexOf(l.stage);if(!l||i>=stages.length-1)return;await api('/api/leads',{method:'PATCH',body:JSON.stringify({id,stage:stages[i+1]})});await render()}
 async function leadTable(){await loadLeads();app.innerHTML=`<div class="toolbar"><input id="q" placeholder="Szukaj firmy, kontaktu lub opiekuna…"><select id="stageFilter"><option value="">Wszystkie etapy</option>${stages.map(s=>`<option>${s}</option>`).join('')}</select></div><div class="table-wrap"><table><thead><tr><th>Firma</th><th>Kontakt</th><th>Opiekun</th><th>Źródło</th><th>Etap</th><th>Segment</th><th>MRR</th><th>Follow-up</th></tr></thead><tbody id="rows"></tbody></table></div>`;const draw=()=>{let q=document.querySelector('#q').value.toLowerCase(),sf=document.querySelector('#stageFilter').value;document.querySelector('#rows').innerHTML=leads.filter(l=>(!sf||l.stage===sf)&&(`${l.company} ${l.contact} ${l.owner} ${l.email}`.toLowerCase().includes(q))).map(l=>`<tr><td><b>${l.company}</b><br><small>${l.note||''}</small></td><td>${l.contact}<br><small>${l.email||''}</small></td><td>${l.owner||'Nieprzypisany'}</td><td>${l.source}</td><td>${l.stage}</td><td><span class="chip ${l.grade.toLowerCase()}">${l.grade}</span></td><td>${money(l.mrr)}</td><td class="${overdue(l.followup)?'overdue':'ok'}">${l.followup||'—'}</td></tr>`).join('')||'<tr><td colspan="8">Brak leadów. Dodaj pierwszy rekord.</td></tr>'};document.querySelector('#q').oninput=draw;document.querySelector('#stageFilter').onchange=draw;draw()}
 async function genericModule(key){const rows=await api('/api/modules?module='+encodeURIComponent(key));app.innerHTML=`<div class="module-actions"><button class="secondary" id="addModule">+ Dodaj</button><input id="moduleSearch" placeholder="Szukaj..."></div><div class="module-grid" id="moduleGrid"></div>`;const draw=()=>{const q=document.querySelector('#moduleSearch').value.toLowerCase();document.querySelector('#moduleGrid').innerHTML=rows.filter(r=>(r.title+' '+r.detail+' '+r.status).toLowerCase().includes(q)).map(r=>`<div class="module-card"><div class="module-icon">#</div><div><b>${r.title}</b><span>${r.detail||r.status||''}</span></div><button class="delete-item" data-id="${r.id}">×</button></div>`).join('')||'<div class="empty card">Brak danych. Dodaj pierwszy wpis.</div>';document.querySelectorAll('.delete-item').forEach(b=>b.onclick=async()=>{await api('/api/modules?module='+encodeURIComponent(key)+'&id='+b.dataset.id,{method:'DELETE'});await render()})};document.querySelector('#moduleSearch').oninput=draw;document.querySelector('#addModule').onclick=async()=>{const a=prompt('Nazwa / tytuł:');if(!a)return;const b=prompt('Opis / status:')||'';await api('/api/modules',{method:'POST',body:JSON.stringify({module:key,title:a,detail:b})});await render()};draw()}
+
+function notificationKey(n){return [n.type,n.id||'',n.title,n.date||''].join(':')}
+function readNotifications(){try{return new Set(JSON.parse(localStorage.getItem('brcrm.readNotifications')||'[]'))}catch{return new Set()}}
+function saveReadNotifications(set){localStorage.setItem('brcrm.readNotifications',JSON.stringify([...set]))}
+async function buildNotifications(){
+  await loadLeads();
+  const reminders=await api('/api/modules?module=reminders').catch(()=>[]);
+  const today=new Date().toISOString().slice(0,10);
+  const items=[];
+  leads.forEach(l=>{
+    if(l.followup && l.followup<today && !['Wygrany','Przegrany'].includes(l.stage)) items.push({type:'overdue',id:l.id,title:'Zaległy follow-up',detail:l.company,date:l.followup,view:'leads',priority:3});
+    if(l.followup===today && !['Wygrany','Przegrany'].includes(l.stage)) items.push({type:'today',id:l.id,title:'Follow-up na dziś',detail:l.company,date:l.followup,view:'leads',priority:2});
+    if((!l.owner||l.owner==='Nieprzypisany') && !['Wygrany','Przegrany'].includes(l.stage)) items.push({type:'owner',id:l.id,title:'Lead bez opiekuna',detail:l.company,date:l.created_at,view:'leads',priority:2});
+    if(l.stage==='Oferta' || l.stage==='Follow-up') {
+      const age=(Date.now()-new Date(l.updated_at||l.created_at).getTime())/86400000;
+      if(age>=3) items.push({type:'stale-offer',id:l.id,title:'Oferta czeka na reakcję',detail:l.company,date:l.updated_at||l.created_at,view:'pipeline',priority:1});
+    }
+  });
+  reminders.slice(0,10).forEach(r=>items.push({type:'reminder',id:r.id,title:r.title||'Przypomnienie',detail:r.detail||'',date:r.created_at,view:'reminders',priority:1}));
+  items.sort((a,b)=>b.priority-a.priority||new Date(a.date||0)-new Date(b.date||0));
+  return items.slice(0,20);
+}
+async function refreshNotifications(){
+  try{
+    const items=await buildNotifications(),read=readNotifications();
+    const unread=items.filter(n=>!read.has(notificationKey(n))).length;
+    notificationBadge.textContent=unread>99?'99+':String(unread);
+    notificationBadge.classList.toggle('hidden-badge',unread===0);
+    notificationSummary.textContent=unread===1?'1 nowe':unread+' nowych';
+    notificationList.innerHTML=items.length?items.map(n=>{
+      const key=notificationKey(n),isRead=read.has(key);
+      const icon=n.type==='overdue'?'!':n.type==='today'?'◴':n.type==='owner'?'♙':n.type==='stale-offer'?'◇':'✓';
+      return `<button class="notification-item ${isRead?'is-read':''}" data-notification-key="${encodeURIComponent(key)}" data-notification-view="${n.view}"><span class="notification-icon">${icon}</span><span class="notification-copy"><b>${n.title}</b><small>${n.detail}</small></span><span class="notification-time">${n.date?datePL(n.date):''}</span></button>`
+    }).join(''):'<div class="notification-empty">Wszystko ogarnięte 🎉<small>Nie masz teraz żadnych alertów.</small></div>';
+    notificationList.querySelectorAll('.notification-item').forEach(el=>el.onclick=()=>{
+      const set=readNotifications();set.add(decodeURIComponent(el.dataset.notificationKey));saveReadNotifications(set);
+      notificationPanel.classList.add('hidden');view=el.dataset.notificationView||'dashboard';render();refreshNotifications();refreshNotifications();
+    });
+  }catch(e){
+    notificationBadge.textContent='!';
+    notificationList.innerHTML='<div class="notification-empty">Nie udało się pobrać powiadomień.</div>';
+  }
+}
+notificationBtn.onclick=async e=>{e.stopPropagation();notificationPanel.classList.toggle('hidden');if(!notificationPanel.classList.contains('hidden'))await refreshNotifications()};
+document.querySelector('#markAllRead').onclick=async()=>{const items=await buildNotifications();const set=readNotifications();items.forEach(n=>set.add(notificationKey(n)));saveReadNotifications(set);await refreshNotifications()};
+document.addEventListener('click',e=>{if(!e.target.closest('.notification-wrap'))notificationPanel.classList.add('hidden')});
+
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{view=b.dataset.view;render()});
 const modal=document.querySelector('#modal');addLeadBtn.onclick=()=>modal.classList.remove('hidden');document.querySelector('#closeModal').onclick=()=>modal.classList.add('hidden');
 document.querySelector('#leadForm').onsubmit=async e=>{e.preventDefault();const d=Object.fromEntries(new FormData(e.target));try{await api('/api/leads',{method:'POST',body:JSON.stringify({...d,mrr:Number(d.mrr)||0,stage:'Nowy lead'})});e.target.reset();modal.classList.add('hidden');await api('/api/modules',{method:'POST',body:JSON.stringify({module:'history',title:'Dodano lead',detail:d.company})}).catch(()=>{});await render()}catch(err){alert(err.message)}};
