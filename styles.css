@@ -449,3 +449,49 @@
 .client-status-pill.status-suspended{background:#fff5dc;color:#9a6810}
 .client-status-pill.status-inactive{background:#eef1f5;color:#667085}
 .client-status-pill.status-payment_hold{background:#fff0f1;color:#b4232f}
+
+/* Meetings calendar */
+.calendar-shell{background:#fff;border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);overflow:hidden}
+.calendar-top{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:20px;border-bottom:1px solid var(--line)}
+.calendar-top h2{margin:0;font-size:22px;text-transform:capitalize}
+.calendar-top p{margin:5px 0 0;color:var(--muted);font-size:11px}
+.calendar-nav{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.calendar-nav button:not(.primary){height:40px;border:1px solid var(--line);background:#fff;border-radius:10px;padding:0 12px;font-size:11px;font-weight:750;color:#596173;cursor:pointer}
+.calendar-weekdays{display:grid;grid-template-columns:repeat(7,1fr);background:#fafbfc;border-bottom:1px solid var(--line)}
+.calendar-weekdays span{padding:10px 12px;text-align:center;color:#8b94a5;font-size:9px;font-weight:850;text-transform:uppercase;letter-spacing:.5px}
+.calendar-grid{display:grid;grid-template-columns:repeat(7,1fr)}
+.calendar-day{min-height:118px;border:0;border-right:1px solid #edf0f5;border-bottom:1px solid #edf0f5;background:#fff;padding:10px;text-align:left;display:flex;flex-direction:column;gap:8px;cursor:pointer}
+.calendar-day:nth-child(7n){border-right:0}
+.calendar-day:hover{background:#fcfcfd}
+.calendar-day.is-empty{background:#fafbfc;cursor:default}
+.calendar-day.is-today{background:#fff7f8}
+.calendar-day-number{width:26px;height:26px;display:grid;place-items:center;border-radius:50%;font-size:11px;font-weight:850;color:#4d5668}
+.calendar-day.is-today .calendar-day-number{background:var(--red);color:#fff}
+.calendar-events{display:grid;gap:4px;min-width:0}
+.calendar-event{display:block;padding:5px 7px;border-radius:7px;background:#fff1f2;color:#8d2630;font-size:9px;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.calendar-event b{font-weight:900}
+.calendar-more{font-size:8px;color:var(--muted);padding:2px 4px}
+.meeting-panel{position:fixed;inset:0;background:rgba(24,29,43,.46);display:grid;place-items:center;z-index:78;padding:20px}
+.meeting-panel.hidden{display:none}
+.meeting-card{width:min(700px,100%);max-height:92vh;overflow:auto;background:#fff;border-radius:22px;padding:28px;box-shadow:0 30px 90px rgba(20,30,50,.24)}
+.meeting-card .modal-head{margin-bottom:14px}
+.meeting-card .modal-head h2{margin:0;font-size:26px}
+.meeting-card .modal-head p{margin:5px 0 0;color:var(--muted);font-size:11px}
+#meetingForm{display:grid;gap:10px}
+#meetingForm label{display:grid;gap:7px;font-size:12px;font-weight:750;color:#566074}
+#meetingForm input,#meetingForm select,#meetingForm textarea{width:100%;border:1px solid var(--line);border-radius:11px;padding:0 12px;font:inherit}
+#meetingForm input,#meetingForm select{height:50px}
+#meetingForm textarea{padding:11px 12px;resize:vertical}
+#meetingForm input:focus,#meetingForm select:focus,#meetingForm textarea:focus{outline:0;border-color:var(--red);box-shadow:0 0 0 4px rgba(239,51,64,.08)}
+.meeting-detail-card{width:min(520px,100%)}
+.meeting-detail-body{display:grid;gap:10px}
+.meeting-detail-body>div{background:#fafbfc;border:1px solid #edf0f5;border-radius:11px;padding:12px}
+.meeting-detail-body span{display:block;color:var(--muted);font-size:9px;text-transform:uppercase;letter-spacing:.4px}
+.meeting-detail-body b{display:block;margin-top:4px;font-size:12px}
+.meeting-detail-note p{margin:6px 0 0;font-size:12px;line-height:1.5}
+.meeting-detail-actions{display:flex;justify-content:flex-end;margin-top:14px}
+@media(max-width:900px){
+  .calendar-top{align-items:flex-start;flex-direction:column}
+  .calendar-shell{overflow:auto}
+  .calendar-weekdays,.calendar-grid{min-width:760px}
+}
