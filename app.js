@@ -333,13 +333,21 @@ async function clientDetailView(){
  if(!selectedClientId){
    view='clients';localStorage.setItem('brcrm_view',view);return clientsView();
  }
- const clients=await api('/api/clients');
+ const [clients,initialNotes]=await Promise.all([
+   api('/api/clients'),
+   api('/api/client-notes?client_id='+encodeURIComponent(selectedClientId)).catch(()=>[])
+ ]);
  const x=clients.find(v=>Number(v.id)===Number(selectedClientId));
  if(!x){
    selectedClientId=null;localStorage.removeItem('brcrm_client_id');view='clients';localStorage.setItem('brcrm_view',view);return clientsView();
  }
  const isJdg=x.entity_type==='jdg';
  const typeLabel=t=>t==='jdg'?'JDG':t==='company'?'Spółka':'Fundacja';
+ const safe=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
+ let notes=initialNotes;
+ let activeTab=localStorage.getItem('brcrm_client_tab')||'tax';
+ if(!['tax','notes'].includes(activeTab))activeTab='tax';
+
  title.textContent=x.name;
  subtitle.textContent='Karta klienta • '+typeLabel(x.entity_type);
  crumb.textContent='CRM / Klienci / '+x.name;
@@ -349,18 +357,24 @@ async function clientDetailView(){
    <button class="back-client-btn" id="backToClients">← Wróć do klientów</button>
    <div class="client-profile-title">
      <span class="client-profile-avatar">${initials(x.name)}</span>
-     <div><h2>${x.name}</h2><div class="client-profile-meta"><span class="entity-pill">${typeLabel(x.entity_type)}</span><span>NIP: <b>${x.nip||'—'}</b></span><span>REGON: <b>${x.regon||'—'}</b></span>${!isJdg?`<span>KRS: <b>${x.krs||'—'}</b></span>`:''}</div></div>
+     <div><h2>${safe(x.name)}</h2><div class="client-profile-meta"><span class="entity-pill">${typeLabel(x.entity_type)}</span><span>NIP: <b>${safe(x.nip||'—')}</b></span><span>REGON: <b>${safe(x.regon||'—')}</b></span>${!isJdg?`<span>KRS: <b>${safe(x.krs||'—')}</b></span>`:''}</div></div>
    </div>
  </div>
 
+ <div class="client-profile-tabs">
+   <button type="button" class="client-tab ${activeTab==='tax'?'active':''}" data-client-tab="tax">Dane podatkowe</button>
+   <button type="button" class="client-tab ${activeTab==='notes'?'active':''}" data-client-tab="notes">Uwagi do rozliczeń <span id="clientNotesCount">${notes.length}</span></button>
+ </div>
+
+ <div id="clientTaxTab" class="${activeTab==='tax'?'':'hidden'}">
  <form id="clientProfileForm" class="client-profile-form">
    <section class="profile-section">
      <div class="profile-section-head"><div><h3>Dane kontaktowe i adresowe</h3><p>Adresy wykorzystywane w obsłudze księgowej i korespondencji.</p></div></div>
      <div class="profile-grid">
-       <label class="${isJdg?'':'hidden'}">Adres zamieszkania<textarea name="residence_address" rows="3" placeholder="Ulica, numer, kod pocztowy, miejscowość">${x.residence_address||''}</textarea></label>
-       <label>Adres działalności<textarea name="business_address" rows="3" placeholder="Ulica, numer, kod pocztowy, miejscowość">${x.business_address||''}</textarea></label>
-       <label>Adres korespondencyjny<textarea name="correspondence_address" rows="3" placeholder="Jeżeli inny niż adres działalności">${x.correspondence_address||''}</textarea></label>
-       <label>E-mail kontaktowy<input name="contact_email" type="email" value="${x.contact_email||''}" placeholder="klient@firma.pl"></label>
+       <label class="${isJdg?'':'hidden'}">Adres zamieszkania<textarea name="residence_address" rows="3" placeholder="Ulica, numer, kod pocztowy, miejscowość">${safe(x.residence_address||'')}</textarea></label>
+       <label>Adres działalności<textarea name="business_address" rows="3" placeholder="Ulica, numer, kod pocztowy, miejscowość">${safe(x.business_address||'')}</textarea></label>
+       <label>Adres korespondencyjny<textarea name="correspondence_address" rows="3" placeholder="Jeżeli inny niż adres działalności">${safe(x.correspondence_address||'')}</textarea></label>
+       <label>E-mail kontaktowy<input name="contact_email" type="email" value="${safe(x.contact_email||'')}" placeholder="klient@firma.pl"></label>
        <label>Język obsługi
          <select name="service_language">
            ${['Polski','Angielski','Niemiecki','Ukraiński','Inny'].map(v=>`<option ${(x.service_language||'Polski')===v?'selected':''}>${v}</option>`).join('')}
@@ -396,7 +410,7 @@ async function clientDetailView(){
            <option value="kwartalnie" ${x.settlement_frequency==='kwartalnie'?'selected':''}>Kwartalnie</option>
          </select>
        </label>
-       <label>Właściwy urząd skarbowy<input name="tax_office" value="${x.tax_office||''}" placeholder="np. Urząd Skarbowy Warszawa-Wola"></label>
+       <label>Właściwy urząd skarbowy<input name="tax_office" value="${safe(x.tax_office||'')}" placeholder="np. Urząd Skarbowy Warszawa-Wola"></label>
      </div>
    </section>
 
@@ -412,13 +426,13 @@ async function clientDetailView(){
    <section class="profile-section">
      <div class="profile-section-head"><div><h3>Dane właściciela JDG</h3><p>Dodatkowe dane osoby fizycznej prowadzącej działalność.</p></div></div>
      <div class="profile-owner-summary">
-       <div><span>Imię</span><b>${x.first_name||'—'}</b></div>
-       <div><span>Nazwisko</span><b>${x.last_name||'—'}</b></div>
-       <div><span>PESEL</span><b>${x.pesel||'—'}</b></div>
+       <div><span>Imię</span><b>${safe(x.first_name||'—')}</b></div>
+       <div><span>Nazwisko</span><b>${safe(x.last_name||'—')}</b></div>
+       <div><span>PESEL</span><b>${safe(x.pesel||'—')}</b></div>
      </div>
      <div class="profile-grid profile-grid-3">
-       <label>Imię ojca<input name="father_name" value="${x.father_name||''}"></label>
-       <label>Imię matki<input name="mother_name" value="${x.mother_name||''}"></label>
+       <label>Imię ojca<input name="father_name" value="${safe(x.father_name||'')}"></label>
+       <label>Imię matki<input name="mother_name" value="${safe(x.mother_name||'')}"></label>
      </div>
    </section>`:''}
 
@@ -426,16 +440,37 @@ async function clientDetailView(){
      <span id="profileSaveStatus"></span>
      <button class="primary" type="submit">Zapisz kartę klienta</button>
    </div>
- </form>`;
+ </form>
+ </div>
+
+ <div id="clientNotesTab" class="${activeTab==='notes'?'':'hidden'}">
+   <section class="profile-section settlement-notes-section">
+     <div class="profile-section-head"><div><h3>Uwagi do rozliczeń</h3><p>Stała historia informacji ważnych przy księgowaniu i rozliczeniach klienta.</p></div></div>
+     <form id="clientNoteForm" class="client-note-form">
+       <textarea name="note" rows="4" required placeholder="Np. klient przesyła dokumenty do 5. dnia miesiąca, leasing rozliczamy 50% VAT..."></textarea>
+       <div class="client-note-form-actions"><span id="clientNoteStatus"></span><button class="primary" type="submit">+ Dodaj uwagę</button></div>
+     </form>
+     <div class="client-notes-list" id="clientNotesList"></div>
+   </section>
+ </div>`;
 
  $('#backToClients').onclick=()=>{view='clients';localStorage.setItem('brcrm_view',view);render()};
+
+ const switchTab=tab=>{
+   activeTab=tab;localStorage.setItem('brcrm_client_tab',tab);
+   document.querySelectorAll('[data-client-tab]').forEach(b=>b.classList.toggle('active',b.dataset.clientTab===tab));
+   $('#clientTaxTab').classList.toggle('hidden',tab!=='tax');
+   $('#clientNotesTab').classList.toggle('hidden',tab!=='notes');
+ };
+ document.querySelectorAll('[data-client-tab]').forEach(b=>b.onclick=()=>switchTab(b.dataset.clientTab));
+
  const form=$('#clientProfileForm');
  form.onsubmit=async e=>{
    e.preventDefault();
    const fd=Object.fromEntries(new FormData(form)),status=$('#profileSaveStatus');
    status.textContent='Zapisywanie…';
    try{
-     const updated=await api('/api/clients',{method:'PATCH',body:JSON.stringify({
+     await api('/api/clients',{method:'PATCH',body:JSON.stringify({
        id:Number(x.id),
        residence_address:isJdg?(fd.residence_address||''):'',
        business_address:fd.business_address||'',
@@ -456,6 +491,34 @@ async function clientDetailView(){
      setTimeout(()=>{if($('#profileSaveStatus'))$('#profileSaveStatus').textContent=''},2200);
    }catch(err){status.textContent='Błąd: '+err.message}
  };
+
+ const notesList=$('#clientNotesList'),noteForm=$('#clientNoteForm');
+ const drawNotes=()=>{
+   $('#clientNotesCount').textContent=notes.length;
+   notesList.innerHTML=notes.length?notes.map(n=>`
+     <article class="settlement-note">
+       <div class="settlement-note-head"><div><b>${safe(n.author_name||'Użytkownik')}</b><span>${new Date(n.created_at).toLocaleString('pl-PL')}</span></div><button type="button" class="delete-client-note" data-note-id="${n.id}">Usuń</button></div>
+       <p>${safe(n.note).replace(/\n/g,'<br>')}</p>
+     </article>`).join(''):'<div class="notes-empty">Brak uwag do rozliczeń. Dodaj pierwszą informację dla tego klienta.</div>';
+   document.querySelectorAll('.delete-client-note').forEach(btn=>btn.onclick=async()=>{
+     if(!confirm('Usunąć tę uwagę?'))return;
+     try{
+       await api('/api/client-notes?id='+btn.dataset.noteId,{method:'DELETE'});
+       notes=notes.filter(n=>String(n.id)!==btn.dataset.noteId);drawNotes();
+     }catch(err){$('#clientNoteStatus').textContent=err.message}
+   });
+ };
+ noteForm.onsubmit=async e=>{
+   e.preventDefault();
+   const fd=Object.fromEntries(new FormData(noteForm)),status=$('#clientNoteStatus');
+   status.textContent='Zapisywanie…';
+   try{
+     const created=await api('/api/client-notes',{method:'POST',body:JSON.stringify({client_id:Number(x.id),note:fd.note})});
+     notes=[created,...notes];noteForm.reset();drawNotes();status.textContent='Dodano ✓';
+     setTimeout(()=>{if($('#clientNoteStatus'))$('#clientNoteStatus').textContent=''},1800);
+   }catch(err){status.textContent=err.message}
+ };
+ drawNotes();
 }
 
 async function pipeline(){
