@@ -235,7 +235,7 @@ async function clientsView(){
          <label>REGON<input name="regon" inputmode="numeric" maxlength="14" placeholder="REGON"></label>
          <label id="contactNameField">Imię i nazwisko<input name="contact_name" placeholder="np. Jan Kowalski"></label>
          <label id="peselField">PESEL<input name="pesel" inputmode="numeric" maxlength="11" placeholder="11 cyfr"></label>
-         <label id="krsField" class="hidden">KRS<div class="lookup-field"><input name="krs" inputmode="numeric" maxlength="10" placeholder="Numer KRS"><button type="button" class="gus-btn" data-gus="krs">Pobierz dane</button></div></label>
+         <label id="krsField" class="hidden">KRS<input name="krs" inputmode="numeric" maxlength="10" placeholder="Numer KRS"></label>
        </div>
        <div class="gus-status hidden" id="gusStatus"></div>
        <button class="primary wide">Zapisz klienta</button>
