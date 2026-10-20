@@ -1,5 +1,5 @@
 const stages=['Nowy lead','Do kontaktu','Kontakt wykonany','Kwalifikacja','Oferta','Follow-up','Wygrany','Przegrany'];
-let leads=[],view=localStorage.getItem('brcrm_view')||'dashboard',currentUser=null,pendingOwnerFilter=null;
+let leads=[],view=localStorage.getItem('brcrm_view')||'dashboard',currentUser=null,pendingOwnerFilter=null,selectedClientId=Number(localStorage.getItem('brcrm_client_id')||0)||null;
 
 const $=s=>document.querySelector(s);
 const app=$('#app'),title=$('#viewTitle'),subtitle=$('#subtitle'),crumb=$('#crumb'),addLeadBtn=$('#addLead');
@@ -15,6 +15,7 @@ const labels={
  reminders:['Przypomnienia','Zadania i terminy wymagające działania.'],
  emails:['Wiadomości e-mail','Robocza skrzynka i status korespondencji.'],
  clients:['Klienci','Aktywni klienci biura rachunkowego.'],
+ clientDetail:['Karta klienta','Dane księgowe i organizacyjne klienta.'],
  leads:['Leady / Potencjalni klienci','Pełna lista kontaktów sprzedażowych.'],
  pipeline:['Szanse sprzedaży','Zarządzaj leadami i przesuwaj je przez kolejne etapy sprzedaży.'],
  offers:['Oferty','Wysłane i przygotowywane oferty.'],
@@ -113,7 +114,7 @@ $('#logoutBtn').onclick=async()=>{await api('/api/auth',{method:'POST',body:JSON
 async function render(){
  if(!currentUser)return;
  localStorage.setItem('brcrm_view',view);
- document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active',b.dataset.view===view));
+ document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active',b.dataset.view===view||(view==='clientDetail'&&b.dataset.view==='clients')));
  const [t,s]=labels[view]||[view,''];title.textContent=t;subtitle.textContent=s;
  crumb.textContent=(['dashboard','stats','users','history','reminders','emails'].includes(view)?'OGÓLNE / ':'CRM / ')+t;
  addLeadBtn.style.display=['dashboard','pipeline','leads'].includes(view)?'inline-block':'none';
@@ -123,6 +124,7 @@ async function render(){
    if(view==='stats')return await statsView();
    if(view==='users')return await usersView();
    if(view==='clients')return await clientsView();
+   if(view==='clientDetail')return await clientDetailView();
    if(view==='pipeline')return await pipeline();
    if(view==='leads')return await leadTable();
    return await genericModule(view);
