@@ -187,8 +187,59 @@ function bindDashboardActions(){document.querySelectorAll('[data-view-link]').fo
 
 async function statsView(){
  const base=await api('/api/stats'),owners=base.owners.map(x=>x.owner);
- app.innerHTML=`<div class="stats-toolbar"><label>Statystyki dla<select id="statsOwner"><option value="all">Cały zespół</option>${owners.map(o=>`<option value="${o}">${o}</option>`).join('')}</select></label></div><div id="statsBody"></div>`;
- const draw=async()=>{const owner=$('#statsOwner').value,data=owner==='all'?base:await api('/api/stats?owner='+encodeURIComponent(owner)),t=data.totals;$('#statsBody').innerHTML=`<div class="kpis premium"><div class="kpi-card pink"><div><span>Leady</span><b>${t.total}</b><small>łącznie</small></div></div><div class="kpi-card peach"><div><span>Wygrane</span><b>${t.won}</b><small>${money(t.won_mrr)} MRR</small></div></div><div class="kpi-card blue"><div><span>Konwersja</span><b>${t.conversion}%</b><small>lead → klient</small></div></div></div><div class="report-grid"><div class="card"><h3>Etapy</h3>${data.stages.map(x=>`<div class="metric"><span>${x.stage}</span><b>${x.count} • ${money(x.mrr)}</b></div>`).join('')}</div><div class="card"><h3>Źródła</h3>${data.sources.map(x=>`<div class="metric"><span>${x.source}</span><b>${x.won}/${x.count}</b></div>`).join('')}</div></div>`};
+ app.innerHTML=`
+ <div class="stats-toolbar"><label>Statystyki dla<select id="statsOwner"><option value="all">Cały zespół</option>${owners.map(o=>`<option value="${o}">${o}</option>`).join('')}</select></label></div>
+ <div id="statsBody"></div>`;
+ const monthLabel=m=>new Date(m+'-01T12:00:00').toLocaleDateString('pl-PL',{month:'short',year:'numeric'});
+ const draw=async()=>{
+   const owner=$('#statsOwner').value;
+   const data=owner==='all'?base:await api('/api/stats?owner='+encodeURIComponent(owner));
+   const t=data.totals,cs=data.client_status||{},cf=data.client_flow||[],lf=data.lead_flow||[];
+   $('#statsBody').innerHTML=`
+   <div class="section-row stats-section-title"><h3>Leady</h3><span>Sprzedaż i pozyskanie</span></div>
+   <div class="kpis premium stats-kpis-3">
+     <div class="kpi-card pink"><div><span>Leady</span><b>${t.total}</b><small>łącznie</small></div></div>
+     <div class="kpi-card peach"><div><span>Wygrane</span><b>${t.won}</b><small>pozyskani klienci</small></div></div>
+     <div class="kpi-card blue"><div><span>Konwersja</span><b>${t.conversion}%</b><small>lead → klient</small></div></div>
+   </div>
+
+   <div class="section-row stats-section-title"><h3>Klienci obecnie</h3><span>Stan obsługi na dziś</span></div>
+   <div class="client-status-kpis">
+     <div class="client-status-stat is-active"><span>Aktywni</span><b>${cs.active||0}</b><small>obsługiwani obecnie</small></div>
+     <div class="client-status-stat is-suspended"><span>Zawieszeni</span><b>${cs.suspended||0}</b><small>czasowo zawieszeni</small></div>
+     <div class="client-status-stat is-inactive"><span>Nieobsługiwani</span><b>${cs.inactive||0}</b><small>zakończona obsługa</small></div>
+     <div class="client-status-stat is-payment"><span>Wstrzymani</span><b>${cs.payment_hold||0}</b><small>zaległości płatnicze</small></div>
+   </div>
+   ${cs.incomplete? `<div class="stats-info-note">Do uzupełnienia po konwersji leada: <b>${cs.incomplete}</b> ${cs.incomplete===1?'klient':'klientów'}.</div>`:''}
+
+   <div class="stats-flow-grid">
+     <section class="stats-flow-card">
+       <div class="stats-flow-head"><div><h3>Ruch klientów</h3><p>Nowi kontra zawieszenia, odejścia i reaktywacje — ostatnie 6 miesięcy.</p></div></div>
+       <div class="stats-table-wrap">
+         <div class="stats-flow-table client-flow">
+           <div class="stats-flow-row head"><span>Miesiąc</span><span>Nowi</span><span>Zawieszeni</span><span>Nieobsługiwani</span><span>Płatności</span><span>Reaktywacje</span><span>Bilans</span></div>
+           ${cf.map(x=>`<div class="stats-flow-row"><b>${monthLabel(x.month)}</b><span>+${x.new_clients}</span><span>${x.suspended}</span><span>${x.inactive}</span><span>${x.payment_hold}</span><span>+${x.reactivated}</span><strong class="${x.net>0?'positive':x.net<0?'negative':'neutral'}">${x.net>0?'+':''}${x.net}</strong></div>`).join('')}
+         </div>
+       </div>
+       <div class="stats-flow-legend"><span><i class="positive-dot"></i> dodatni bilans = rośniemy</span><span><i class="negative-dot"></i> ujemny = więcej ograniczeń/odejść niż nowych</span></div>
+     </section>
+
+     <section class="stats-flow-card">
+       <div class="stats-flow-head"><div><h3>Ruch leadów</h3><p>Nowe leady oraz zakończenia procesu — ostatnie 6 miesięcy.</p></div></div>
+       <div class="stats-table-wrap">
+         <div class="stats-flow-table lead-flow">
+           <div class="stats-flow-row head"><span>Miesiąc</span><span>Nowe leady</span><span>Pozyskane</span><span>Odrzucone</span></div>
+           ${lf.map(x=>`<div class="stats-flow-row"><b>${monthLabel(x.month)}</b><span>+${x.new_leads}</span><span class="positive-text">${x.won}</span><span class="negative-text">${x.rejected}</span></div>`).join('')}
+         </div>
+       </div>
+     </section>
+   </div>
+
+   <div class="report-grid stats-report-grid">
+     <div class="card"><h3>Etapy leadów</h3>${data.stages.map(x=>`<div class="metric"><span>${x.stage}</span><b>${x.count}</b></div>`).join('')}</div>
+     <div class="card"><h3>Źródła leadów</h3>${data.sources.map(x=>`<div class="metric"><span>${x.source}</span><b>${x.won}/${x.count}</b></div>`).join('')}</div>
+   </div>`;
+ };
  const select=$('#statsOwner');select.onchange=draw;
  if(currentUser.role==='employee'){select.innerHTML=`<option value="${currentEmployeeName()}">${currentEmployeeName()}</option>`;select.disabled=true}
  else if(pendingOwnerFilter&&owners.includes(pendingOwnerFilter)){select.value=pendingOwnerFilter;pendingOwnerFilter=null}
@@ -225,6 +276,7 @@ async function clientsView(){
        <option value="jdg">JDG</option>
        <option value="company">Spółka</option>
        <option value="foundation">Fundacja</option>
+       <option value="incomplete">Do uzupełnienia</option>
      </select>
      <select id="clientStatusFilter" class="client-type-filter">
        <option value="">Wszystkie statusy</option>
@@ -283,18 +335,18 @@ async function clientsView(){
    </div>
  </div>`;
  const grid=$('#clientsGrid'),panel=$('#clientFormPanel'),form=$('#clientForm'),q=$('#clientSearch'),typeFilter=$('#clientTypeFilter'),statusFilter=$('#clientStatusFilter'),sortSelect=$('#clientSort');
- const typeLabel=t=>t==='jdg'?'JDG':t==='company'?'Spółka':'Fundacja';
+ const typeLabel=t=>t==='jdg'?'JDG':t==='company'?'Spółka':t==='foundation'?'Fundacja':'Do uzupełnienia';
  const statusLabel=s=>s==='suspended'?'Zawieszony':s==='inactive'?'Nieobsługiwany':s==='payment_hold'?'Wstrzymany – płatności':'Aktywny';
  const draw=()=>{
    const term=q.value.toLowerCase().trim(),entity=typeFilter.value,status=statusFilter.value,sort=sortSelect.value;
    const filtered=clients
-     .filter(x=>(!entity||x.entity_type===entity)&&(!status||x.client_status===status)&&(x.name+' '+(x.first_name||'')+' '+(x.last_name||'')+' '+(x.contact_name||'')+' '+x.nip+' '+(x.regon||'')+' '+(x.krs||'')+' '+(x.pesel||'')).toLowerCase().includes(term))
+     .filter(x=>(!entity||(entity==='incomplete'?!x.entity_type:x.entity_type===entity))&&(!status||x.client_status===status)&&(x.name+' '+(x.first_name||'')+' '+(x.last_name||'')+' '+(x.contact_name||'')+' '+(x.nip||'')+' '+(x.regon||'')+' '+(x.krs||'')+' '+(x.pesel||'')).toLowerCase().includes(term))
      .sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''),'pl',{sensitivity:'base'})*(sort==='desc'?-1:1));
    grid.innerHTML=filtered.length?filtered.map(x=>`
      <div class="client-list-row">
        <div class="client-list-name"><span class="client-avatar">${initials(x.name)}</span><button class="client-name-link open-client" data-id="${x.id}" type="button">${x.name}</button></div>
        <div><span class="client-status-pill status-${x.client_status||'active'}">${statusLabel(x.client_status)}</span></div>
-       <div><span class="entity-pill">${typeLabel(x.entity_type)}</span></div>
+       <div><span class="entity-pill ${!x.entity_type?'entity-incomplete':''}">${typeLabel(x.entity_type)}</span></div>
        <div>${x.entity_type==='jdg'?(x.first_name||'—'):'—'}</div>
        <div>${x.entity_type==='jdg'?(x.last_name||'—'):'—'}</div>
        <div class="client-code">${x.nip||'—'}</div>
@@ -307,22 +359,23 @@ async function clientsView(){
    document.querySelectorAll('.delete-client').forEach(b=>b.onclick=async()=>{if(!confirm('Usunąć tego klienta?'))return;await api('/api/clients?id='+b.dataset.id,{method:'DELETE'});await clientsView()});
  };
  const setEntity=type=>{
-   form.entity_type.value=type;
-   document.querySelectorAll('[data-entity]').forEach(b=>b.classList.toggle('active',b.dataset.entity===type));
-   const isJdg=type==='jdg';
+   const valid=['jdg','company','foundation'].includes(type);
+   form.entity_type.value=valid?type:'';
+   document.querySelectorAll('[data-entity]').forEach(b=>b.classList.toggle('active',valid&&b.dataset.entity===type));
+   const isJdg=type==='jdg',isOther=valid&&!isJdg;
    $('#firstNameField').classList.toggle('hidden',!isJdg);
    $('#lastNameField').classList.toggle('hidden',!isJdg);
    $('#peselField').classList.toggle('hidden',!isJdg);
-   $('#krsField').classList.toggle('hidden',isJdg);
+   $('#krsField').classList.toggle('hidden',!isOther);
    form.first_name.required=isJdg;
    form.last_name.required=isJdg;
    form.pesel.required=isJdg;
-   form.krs.required=!isJdg;
-   if(!isJdg){form.first_name.value='';form.last_name.value='';form.pesel.value=''}
+   form.krs.required=isOther;
+   if(valid&&!isJdg){form.first_name.value='';form.last_name.value='';form.pesel.value=''}
    if(isJdg)form.krs.value='';
  };
  const openNew=()=>{form.reset();form.id.value='';form.client_status.value='active';setEntity('jdg');$('#gusStatus').classList.add('hidden');$('#clientFormTitle').textContent='Nowy klient';panel.classList.remove('hidden')};
- const openEdit=id=>{const x=clients.find(v=>Number(v.id)===id);if(!x)return;form.id.value=x.id;form.name.value=x.name;form.nip.value=x.nip||'';form.regon.value=x.regon||'';form.first_name.value=x.first_name||'';form.last_name.value=x.last_name||'';form.pesel.value=x.pesel||'';form.krs.value=x.krs||'';form.client_status.value=x.client_status||'active';setEntity(x.entity_type);$('#gusStatus').classList.add('hidden');$('#clientFormTitle').textContent='Edytuj klienta';panel.classList.remove('hidden')};
+ const openEdit=id=>{const x=clients.find(v=>Number(v.id)===id);if(!x)return;form.id.value=x.id;form.name.value=x.name;form.nip.value=x.nip||'';form.regon.value=x.regon||'';form.first_name.value=x.first_name||'';form.last_name.value=x.last_name||'';form.pesel.value=x.pesel||'';form.krs.value=x.krs||'';form.client_status.value=x.client_status||'active';setEntity(x.entity_type||null);$('#gusStatus').classList.add('hidden');$('#clientFormTitle').textContent='Edytuj klienta';panel.classList.remove('hidden')};
  $('#openClientForm').onclick=openNew;$('#closeClientForm').onclick=()=>panel.classList.add('hidden');q.oninput=draw;typeFilter.onchange=draw;statusFilter.onchange=draw;sortSelect.onchange=draw;
  document.querySelectorAll('[data-entity]').forEach(b=>b.onclick=()=>setEntity(b.dataset.entity));
  document.querySelectorAll('[data-gus]').forEach(b=>b.onclick=async()=>{
@@ -362,7 +415,7 @@ async function clientDetailView(){
    selectedClientId=null;localStorage.removeItem('brcrm_client_id');view='clients';localStorage.setItem('brcrm_view',view);return clientsView();
  }
  const isJdg=x.entity_type==='jdg';
- const typeLabel=t=>t==='jdg'?'JDG':t==='company'?'Spółka':'Fundacja';
+ const typeLabel=t=>t==='jdg'?'JDG':t==='company'?'Spółka':t==='foundation'?'Fundacja':'Do uzupełnienia';
  const statusLabel=s=>s==='suspended'?'Zawieszony':s==='inactive'?'Nieobsługiwany':s==='payment_hold'?'Wstrzymany – zaległości płatnicze':'Aktywny';
  const safe=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
  let notes=initialNotes;
