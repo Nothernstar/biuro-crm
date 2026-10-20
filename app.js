@@ -273,7 +273,7 @@ async function clientsView(){
      .sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''),'pl',{sensitivity:'base'})*(sort==='desc'?-1:1));
    grid.innerHTML=filtered.length?filtered.map(x=>`
      <div class="client-list-row">
-       <div class="client-list-name"><span class="client-avatar">${initials(x.name)}</span><b>${x.name}</b></div>
+       <div class="client-list-name"><span class="client-avatar">${initials(x.name)}</span><button class="client-name-link open-client" data-id="${x.id}" type="button">${x.name}</button></div>
        <div><span class="entity-pill">${typeLabel(x.entity_type)}</span></div>
        <div>${x.entity_type==='jdg'?(x.first_name||'—'):'—'}</div>
        <div>${x.entity_type==='jdg'?(x.last_name||'—'):'—'}</div>
