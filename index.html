@@ -49,7 +49,25 @@
         <div id="notificationList" class="notification-list"></div>
       </div>
     </div>
-    <div class="user-chip"><span>AK</span><div><b>Anna Kowalczyk</b><small>Pracownik</small></div><i>⌄</i></div>
+    <div class="employee-wrap">
+      <button class="user-chip" id="employeeBtn" aria-label="Panel pracownika"><span>AK</span><div><b>Anna Kowalczyk</b><small>Pracownik</small></div><i>⌄</i></button>
+      <div class="employee-panel hidden" id="employeePanel">
+        <div class="employee-head">
+          <span class="employee-avatar">AK</span>
+          <div><b>Anna Kowalczyk</b><small>Pracownik • sprzedaż</small></div>
+        </div>
+        <div class="employee-stats" id="employeeStats"></div>
+        <div class="employee-section">
+          <div class="employee-section-title"><b>Moje aktywne leady</b><button id="employeeAllLeads">Wszystkie →</button></div>
+          <div id="employeeLeadList"></div>
+        </div>
+        <div class="employee-actions">
+          <button data-employee-action="leads">♧ Moje leady</button>
+          <button data-employee-action="stats">↗ Moje statystyki</button>
+          <button data-employee-action="reminders">◫ Przypomnienia</button>
+        </div>
+      </div>
+    </div>
   </div>
   <header>
     <div><h1 id="viewTitle">Pulpit</h1><p id="subtitle">Najważniejsze informacje z Twojego biura rachunkowego.</p></div>
