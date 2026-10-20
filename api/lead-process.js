@@ -1,13 +1,16 @@
 import { db, ensureSchema } from '../lib/db.js';
 import { requireUser } from '../lib/auth.js';
 
-const defaults=[
+const acquisitionDefaults=[
   'Pierwszy kontakt z leadem',
   'Rozmowa / kwalifikacja potrzeb',
   'Przygotowanie i wysłanie oferty',
   'Ustalenie warunków współpracy',
   'Zebranie danych do umowy',
-  'Podpisana umowa',
+  'Podpisana umowa'
+];
+
+const onboardingDefaults=[
   'Wysłano maila z kontaktem do opiekuna',
   'Dodanie kanału na Slacku',
   'Ustalenie sposobu wymiany dokumentów',
@@ -30,6 +33,11 @@ const defaults=[
   'Dodanie do Mailchimpa',
   'Start obsługi klienta',
   'Zakończenie onboardingu - potwierdzenie wszystkiego powyżej'
+];
+
+const defaults=[
+  ...acquisitionDefaults.map((title,i)=>({title,phase:'acquisition',sort_order:i+1})),
+  ...onboardingDefaults.map((title,i)=>({title,phase:'onboarding',sort_order:i+1}))
 ];
 
 async function assertLeadAccess(sql,user,leadId){
@@ -72,26 +80,27 @@ export default async function handler(req,res){
       `;
       const existingTitles=new Set(existingItems.map(x=>x.title));
       let addedDefaults=0;
-      for(let i=0;i<defaults.length;i++){
-        if(existingTitles.has(defaults[i])) continue;
+      for(const item of defaults){
+        if(existingTitles.has(item.title)) continue;
         await sql`
-          INSERT INTO lead_onboarding_items(lead_id,title,sort_order)
-          VALUES(${leadId},${defaults[i]},${i+1})
+          INSERT INTO lead_onboarding_items(lead_id,title,phase,sort_order)
+          VALUES(${leadId},${item.title},${item.phase},${item.sort_order})
         `;
         addedDefaults++;
       }
-      for(let i=0;i<defaults.length;i++){
+      for(const item of defaults){
         await sql`
           UPDATE lead_onboarding_items
-          SET sort_order=${i+1},updated_at=NOW()
-          WHERE lead_id=${leadId} AND title=${defaults[i]}
+          SET phase=${item.phase},sort_order=${item.sort_order},updated_at=NOW()
+          WHERE lead_id=${leadId} AND title=${item.title}
         `;
       }
+      const defaultTitles=defaults.map(x=>x.title);
       await sql`
         UPDATE lead_onboarding_items
         SET sort_order=1000+id
         WHERE lead_id=${leadId}
-          AND title <> ALL(${defaults})
+          AND title <> ALL(${defaultTitles})
       `;
 
       if(addedDefaults){
@@ -108,7 +117,7 @@ export default async function handler(req,res){
         `;
       }
       const items=await sql`
-        SELECT id,lead_id,title,assignee_user_id,assignee_name,is_done,completed_at,sort_order,created_at,updated_at
+        SELECT id,lead_id,title,phase,assignee_user_id,assignee_name,is_done,completed_at,sort_order,created_at,updated_at
         FROM lead_onboarding_items WHERE lead_id=${leadId}
         ORDER BY sort_order,id
       `;
@@ -125,11 +134,12 @@ export default async function handler(req,res){
       if(action==='add_item'){
         const title=String(req.body?.title||'').trim();
         if(!title)return res.status(400).json({error:'Wpisz nazwę punktu.'});
-        const max=(await sql`SELECT COALESCE(MAX(sort_order),0)::int AS n FROM lead_onboarding_items WHERE lead_id=${leadId}`)[0]?.n||0;
+        const phase=req.body?.phase==='acquisition'?'acquisition':'onboarding';
+        const max=(await sql`SELECT COALESCE(MAX(sort_order),0)::int AS n FROM lead_onboarding_items WHERE lead_id=${leadId} AND phase=${phase}`)[0]?.n||0;
         const rows=await sql`
-          INSERT INTO lead_onboarding_items(lead_id,title,sort_order)
-          VALUES(${leadId},${title},${Number(max)+1})
-          RETURNING id,lead_id,title,assignee_user_id,assignee_name,is_done,completed_at,sort_order,created_at,updated_at
+          INSERT INTO lead_onboarding_items(lead_id,title,phase,sort_order)
+          VALUES(${leadId},${title},${phase},${Number(max)+1})
+          RETURNING id,lead_id,title,phase,assignee_user_id,assignee_name,is_done,completed_at,sort_order,created_at,updated_at
         `;
         await sql`
           INSERT INTO lead_events(lead_id,event_type,title,detail,actor_id,actor_name)
@@ -180,7 +190,7 @@ export default async function handler(req,res){
           completed_at=CASE WHEN ${done}=TRUE AND is_done=FALSE THEN NOW() WHEN ${done}=FALSE THEN NULL ELSE completed_at END,
           updated_at=NOW()
         WHERE id=${itemId} AND lead_id=${leadId}
-        RETURNING id,lead_id,title,assignee_user_id,assignee_name,is_done,completed_at,sort_order,created_at,updated_at
+        RETURNING id,lead_id,title,phase,assignee_user_id,assignee_name,is_done,completed_at,sort_order,created_at,updated_at
       `;
 
       if(done!==current.is_done){
