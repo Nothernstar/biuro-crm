@@ -1,6 +1,6 @@
 // deploy sync after reconnect
 const stages=['Nowy lead','Do kontaktu','Kontakt wykonany','Kwalifikacja','Oferta','Follow-up','Wygrany','Przegrany'];
-let leads=[],view=localStorage.getItem('brcrm_view')||'dashboard',currentUser=null,pendingOwnerFilter=null,selectedClientId=Number(localStorage.getItem('brcrm_client_id')||0)||null,selectedLeadId=Number(localStorage.getItem('brcrm_lead_id')||0)||null;
+let leads=[],view=localStorage.getItem('brcrm_view')||'dashboard',currentUser=null,pendingOwnerFilter=null,selectedClientId=Number(localStorage.getItem('brcrm_client_id')||0)||null,selectedLeadId=Number(localStorage.getItem('brcrm_lead_id')||0)||null,dashboardTimerId=null;
 
 const $=s=>document.querySelector(s);
 const app=$('#app'),title=$('#viewTitle'),subtitle=$('#subtitle'),crumb=$('#crumb'),addLeadBtn=$('#addLead');
@@ -113,6 +113,7 @@ changePasswordForm.onsubmit=async e=>{
 $('#logoutBtn').onclick=async()=>{await api('/api/auth',{method:'POST',body:JSON.stringify({action:'logout'})}).catch(()=>{});currentUser=null;employeePanel.classList.add('hidden');notificationPanel.classList.add('hidden');await bootAuth()};
 
 async function render(){
+ if(dashboardTimerId){clearInterval(dashboardTimerId);dashboardTimerId=null}
  if(!currentUser)return;
  localStorage.setItem('brcrm_view',view);
  document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active',b.dataset.view===view||(view==='clientDetail'&&b.dataset.view==='clients')||(view==='leadDetail'&&b.dataset.view==='leads')));
@@ -170,7 +171,12 @@ async function dashboard(){
   <div class="side-card recent"><div class="side-title"><h3>Ostatnio używani</h3><button data-view-link="leads">Zobacz wszystkich →</button></div>${recent.map(clientRow).join('')||'<div class="mini-empty">Brak rekordów</div>'}</div>
  </div>`;
  bindDashboardActions();
- if(active)setInterval(()=>{const el=$('#liveTimer');if(el)el.textContent=elapsed(active.updated_at||active.created_at)},1000);
+ if(active){
+  const activeTs=active.updated_at||active.created_at;
+  const tick=()=>{const el=$('#liveTimer');if(!el){if(dashboardTimerId){clearInterval(dashboardTimerId);dashboardTimerId=null}return}el.textContent=elapsed(activeTs)};
+  tick();
+  dashboardTimerId=setInterval(tick,1000);
+ }
 }
 function clientRow(l,fav=false){return `<div class="client-row"><span class="avatar-mini">${initials(l.company)}</span><div><b>${l.company}</b><small>${l.contact||l.stage}</small></div><span class="star">${fav?'★':'☆'}</span></div>`}
 function activityRow(r){return `<div class="activity-row"><span class="activity-dot"></span><span class="activity-time">${new Date(r.created_at).toLocaleTimeString('pl-PL',{hour:'2-digit',minute:'2-digit'})}</span><span class="activity-icon">●</span><div><b>${r.title}</b><small>${r.detail||''}</small></div><i>•••</i></div>`}
