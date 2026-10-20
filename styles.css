@@ -326,3 +326,21 @@
 .gus-status.success{background:#edf9f2;color:#08704d;border:1px solid #d9f0e2}
 .gus-status.error{background:#fff1f2;color:#a71d27;border:1px solid #ffd0d4}
 @media(max-width:700px){.clients-toolbar{align-items:stretch;flex-direction:column}.clients-search{width:100%}.clients-grid{grid-template-columns:1fr}.client-form-card{padding:20px}.lookup-field{grid-template-columns:1fr}.gus-btn{height:44px}.entity-switch{grid-template-columns:1fr}.client-identifiers{grid-template-columns:1fr}}
+
+/* Clients: vertical table-like list */
+.clients-toolbar-left{display:flex;align-items:center;gap:10px;min-width:0}
+.client-type-filter{height:44px;border:1px solid var(--line);border-radius:12px;background:#fff;padding:0 36px 0 13px;font-size:12px;color:#596173;min-width:180px}
+.clients-list-wrap{background:#fff;border:1px solid var(--line);border-radius:14px;overflow:auto;box-shadow:var(--shadow)}
+.clients-list-head,.client-list-row{display:grid;grid-template-columns:minmax(240px,1.8fr) 120px 120px 140px 120px 130px 150px 150px;align-items:center;gap:12px;min-width:1180px}
+.clients-list-head{padding:12px 16px;background:#fafbfc;border-bottom:1px solid var(--line);color:#8992a3;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.45px}
+.client-list-row{padding:14px 16px;border-bottom:1px solid #edf0f5;font-size:11px;color:#2d3442}
+.client-list-row:last-child{border-bottom:0}
+.client-list-row:hover{background:#fcfcfd}
+.client-list-name{display:flex;align-items:center;gap:12px;min-width:0}
+.client-list-name b{font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.client-list-row .client-avatar{flex:0 0 38px;width:38px;height:38px;border-radius:11px}
+.client-code{font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
+.client-row-actions{display:flex;justify-content:flex-end;gap:7px}
+.client-row-actions .secondary,.client-row-actions .danger-ghost{padding:7px 10px;font-size:10px;white-space:nowrap}
+.clients-empty{padding:28px;text-align:center;color:var(--muted);font-size:12px}
+@media(max-width:900px){.clients-toolbar{align-items:stretch;flex-direction:column}.clients-toolbar-left{width:100%;flex-wrap:wrap}.clients-search{flex:1 1 280px}.client-type-filter{flex:1 1 180px}.clients-toolbar .primary{align-self:flex-start}}
