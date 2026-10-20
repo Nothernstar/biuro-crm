@@ -637,6 +637,10 @@ async function leadDetailView(){
  const safe=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
  const resultLabel=r=>r==='won'?'Klient pozyskany':r==='rejected'?'Lead odrzucony':'W trakcie';
  const progress=()=>items.length?Math.round(items.filter(i=>i.is_done).length/items.length*100):0;
+ let activeLeadPhase=localStorage.getItem('brcrm_lead_phase')||'acquisition';
+ if(!['acquisition','onboarding'].includes(activeLeadPhase))activeLeadPhase='acquisition';
+ const phaseItems=phase=>items.filter(i=>(i.phase||'onboarding')===phase);
+ const phaseProgress=phase=>{const list=phaseItems(phase);return list.length?Math.round(list.filter(i=>i.is_done).length/list.length*100):0};
 
  title.textContent=lead.company;
  subtitle.textContent='Proces leada • '+resultLabel(lead.lead_result);
@@ -680,13 +684,21 @@ async function leadDetailView(){
 
      <section class="lead-process-card">
        <div class="lead-process-card-head">
-         <div><h3>Onboarding</h3><p>Odhaczaj wykonane kroki i przypisuj odpowiedzialność.</p></div>
-         <div class="onboarding-progress"><b id="onboardingProgressText">${progress()}%</b><span>wykonano</span></div>
+         <div><h3>Proces pozyskania i onboardingu</h3><p>Najpierw zamykamy etap sprzedażowy, a po podpisaniu umowy przechodzimy do wdrożenia klienta.</p></div>
        </div>
-       <div class="onboarding-progress-bar"><i id="onboardingProgressBar" style="width:${progress()}%"></i></div>
+       <div class="lead-phase-tabs">
+         <button type="button" class="lead-phase-tab ${activeLeadPhase==='acquisition'?'active':''}" data-lead-phase="acquisition">
+           Pozyskanie leada <span id="acquisitionProgressBadge">${phaseProgress('acquisition')}%</span>
+         </button>
+         <button type="button" class="lead-phase-tab ${activeLeadPhase==='onboarding'?'active':''}" data-lead-phase="onboarding">
+           Onboarding po współpracy <span id="onboardingProgressBadge">${phaseProgress('onboarding')}%</span>
+         </button>
+       </div>
+       <div class="onboarding-progress-bar"><i id="onboardingProgressBar" style="width:${phaseProgress(activeLeadPhase)}%"></i></div>
+       <div class="lead-phase-caption" id="leadPhaseCaption"></div>
        <div class="onboarding-list" id="onboardingList"></div>
        <form id="addOnboardingItem" class="add-onboarding-item">
-         <input name="title" placeholder="Dodaj własny punkt onboardingu..." required>
+         <input name="title" placeholder="Dodaj własny punkt do tej sekcji..." required>
          <button class="secondary" type="submit">+ Dodaj punkt</button>
        </form>
      </section>
@@ -716,8 +728,15 @@ async function leadDetailView(){
  $('#backToLeads').onclick=()=>{view='leads';localStorage.setItem('brcrm_view',view);render()};
 
  const drawItems=()=>{
-   const p=progress();$('#onboardingProgressText').textContent=p+'%';$('#onboardingProgressBar').style.width=p+'%';
-   $('#onboardingList').innerHTML=items.map(item=>`
+   const currentProgress=phaseProgress(activeLeadPhase);
+   $('#onboardingProgressBar').style.width=currentProgress+'%';
+   $('#acquisitionProgressBadge').textContent=phaseProgress('acquisition')+'%';
+   $('#onboardingProgressBadge').textContent=phaseProgress('onboarding')+'%';
+   $('#leadPhaseCaption').textContent=activeLeadPhase==='acquisition'
+     ?'Etap sprzedażowy: od pierwszego kontaktu do podpisania umowy.'
+     :'Etap wdrożeniowy: czynności wykonywane już po nawiązaniu współpracy.';
+   document.querySelectorAll('[data-lead-phase]').forEach(b=>b.classList.toggle('active',b.dataset.leadPhase===activeLeadPhase));
+   $('#onboardingList').innerHTML=phaseItems(activeLeadPhase).map(item=>`
      <div class="onboarding-item ${item.is_done?'is-done':''}">
        <label class="onboarding-check"><input type="checkbox" data-onboarding-check="${item.id}" ${item.is_done?'checked':''}><span></span></label>
        <div class="onboarding-copy"><b>${safe(item.title)}</b><small>${item.completed_at?'Wykonano: '+new Date(item.completed_at).toLocaleString('pl-PL'):'Do wykonania'}</small></div>
@@ -763,10 +782,12 @@ async function leadDetailView(){
      </div>`).join(''):'<div class="notes-empty">Brak zdarzeń.</div>';
  };
 
+ document.querySelectorAll('[data-lead-phase]').forEach(b=>b.onclick=()=>{activeLeadPhase=b.dataset.leadPhase;localStorage.setItem('brcrm_lead_phase',activeLeadPhase);drawItems()});
+
  $('#addOnboardingItem').onsubmit=async e=>{
    e.preventDefault();const fd=Object.fromEntries(new FormData(e.target));
    try{
-     const created=await api('/api/lead-process',{method:'POST',body:JSON.stringify({lead_id:Number(lead.id),action:'add_item',title:fd.title})});
+     const created=await api('/api/lead-process',{method:'POST',body:JSON.stringify({lead_id:Number(lead.id),action:'add_item',title:fd.title,phase:activeLeadPhase})});
      items=[...items,created];e.target.reset();
      const refreshed=await api('/api/lead-process?lead_id='+lead.id);events=refreshed.events||events;drawItems();drawTimeline();
    }catch(err){alert(err.message)}
