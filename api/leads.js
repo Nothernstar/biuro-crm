@@ -11,19 +11,19 @@ export default async function handler(req,res){
 
     if(req.method==='GET'){
       const rows=ownOnly
-        ? await sql`SELECT id,company,contact,email,phone,source,mrr::float8 AS mrr,grade,stage,followup::text AS followup,note,owner,created_at,updated_at FROM leads WHERE owner=${user.full_name} ORDER BY created_at DESC`
-        : await sql`SELECT id,company,contact,email,phone,source,mrr::float8 AS mrr,grade,stage,followup::text AS followup,note,owner,created_at,updated_at FROM leads ORDER BY created_at DESC`;
+        ? await sql`SELECT id,company,contact,email,phone,source,mrr::float8 AS mrr,grade,lead_quality,stage,followup::text AS followup,note,owner,created_at,updated_at FROM leads WHERE owner=${user.full_name} ORDER BY created_at DESC`
+        : await sql`SELECT id,company,contact,email,phone,source,mrr::float8 AS mrr,grade,lead_quality,stage,followup::text AS followup,note,owner,created_at,updated_at FROM leads ORDER BY created_at DESC`;
       return res.status(200).json(rows);
     }
 
     if(req.method==='POST'){
       const b=req.body||{};
-      if(!b.company||!b.contact)return res.status(400).json({error:'Firma i osoba kontaktowa są wymagane.'});
-      const owner=ownOnly?user.full_name:(b.owner||user.full_name||'Nieprzypisany');
+      if(!b.company)return res.status(400).json({error:'Nazwa leada jest wymagana.'});
+      const owner=ownOnly?user.full_name:(b.owner||'Nieprzypisany');
       const rows=await sql`
-        INSERT INTO leads(company,contact,email,phone,source,mrr,grade,stage,followup,note,owner)
-        VALUES(${b.company},${b.contact},${b.email||''},${b.phone||''},${b.source||'Inne'},${Number(b.mrr)||0},${b.grade||'B'},${b.stage||'Nowy lead'},${b.followup||null},${b.note||''},${owner})
-        RETURNING id,company,contact,email,phone,source,mrr::float8 AS mrr,grade,stage,followup::text AS followup,note,owner,created_at,updated_at`;
+        INSERT INTO leads(company,contact,email,phone,source,mrr,grade,lead_quality,stage,followup,note,owner)
+        VALUES(${b.company},${b.contact||''},${b.email||''},${b.phone||''},${b.source||'Inne'},${Number(b.mrr)||0},${b.grade||'B'},${b.lead_quality||'Dobry'},${b.stage||'Nowy lead'},${b.followup||null},${b.note||''},${owner})
+        RETURNING id,company,contact,email,phone,source,mrr::float8 AS mrr,grade,lead_quality,stage,followup::text AS followup,note,owner,created_at,updated_at`;
       return res.status(201).json(rows[0]);
     }
 
@@ -44,13 +44,14 @@ export default async function handler(req,res){
           source=COALESCE(${b.source??null},source),
           mrr=COALESCE(${b.mrr!==undefined?Number(b.mrr):null},mrr),
           grade=COALESCE(${b.grade??null},grade),
+          lead_quality=COALESCE(${b.lead_quality??null},lead_quality),
           stage=COALESCE(${b.stage??null},stage),
           followup=CASE WHEN ${b.followup===''} THEN NULL ELSE COALESCE(${b.followup??null}::date,followup) END,
           note=COALESCE(${b.note??null},note),
           owner=COALESCE(${owner},owner),
           updated_at=NOW()
         WHERE id=${id}
-        RETURNING id,company,contact,email,phone,source,mrr::float8 AS mrr,grade,stage,followup::text AS followup,note,owner,created_at,updated_at`;
+        RETURNING id,company,contact,email,phone,source,mrr::float8 AS mrr,grade,lead_quality,stage,followup::text AS followup,note,owner,created_at,updated_at`;
       if(!rows[0])return res.status(404).json({error:'Nie znaleziono leada.'});
       return res.status(200).json(rows[0]);
     }
