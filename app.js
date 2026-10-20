@@ -20,7 +20,6 @@ const labels={
  leads:['Leady / Potencjalni klienci','Pełna lista kontaktów sprzedażowych.'],
  leadDetail:['Proces leada','Onboarding, odpowiedzialności i historia procesu.'],
  templates:['Szablony e-mail','Gotowe wzory wiadomości e-mail.'],
- integrations:['Integracje','Połączenia z zewnętrznymi usługami.'],
  settings:['Ustawienia systemu','Konfiguracja CRM.']
 };
 
@@ -63,6 +62,7 @@ async function enterApp(){
  if(['automations','sequences'].includes(view))view='templates';
  if(['offers','notes'].includes(view))view='leads';
  if(view==='emails')view='dashboard';
+ if(view==='integrations')view='settings';
  if(!labels[view]) view='dashboard';
  await render();
  await refreshNotifications();
