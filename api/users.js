@@ -10,7 +10,7 @@ export default async function handler(req,res){
 
     if(req.method==='GET'){
       const rows=await sql`
-        SELECT id,email,full_name,role,is_active,created_at,last_login_at
+        SELECT id,email,full_name,role,is_active,must_change_password,created_at,last_login_at
         FROM app_users ORDER BY created_at ASC
       `;
       return res.status(200).json(rows);
@@ -24,9 +24,9 @@ export default async function handler(req,res){
       if(!email||!fullName) return res.status(400).json({error:'Imię i e-mail są wymagane.'});
       const passwordHash=hashPassword(String(b.password||''));
       const rows=await sql`
-        INSERT INTO app_users(email,full_name,password_hash,role,is_active)
-        VALUES(${email},${fullName},${passwordHash},${role},TRUE)
-        RETURNING id,email,full_name,role,is_active,created_at,last_login_at
+        INSERT INTO app_users(email,full_name,password_hash,role,is_active,must_change_password)
+        VALUES(${email},${fullName},${passwordHash},${role},TRUE,TRUE)
+        RETURNING id,email,full_name,role,is_active,must_change_password,created_at,last_login_at
       `;
       return res.status(201).json(rows[0]);
     }
@@ -45,7 +45,7 @@ export default async function handler(req,res){
       }
       if(b.password){
         const passwordHash=hashPassword(String(b.password));
-        await sql`UPDATE app_users SET password_hash=${passwordHash},updated_at=NOW() WHERE id=${id}`;
+        await sql`UPDATE app_users SET password_hash=${passwordHash},must_change_password=${Number(admin.id)!==id},updated_at=NOW() WHERE id=${id}`;
       }
       const rows=await sql`
         UPDATE app_users
@@ -55,7 +55,7 @@ export default async function handler(req,res){
             is_active=COALESCE(${b.is_active===undefined?null:Boolean(b.is_active)},is_active),
             updated_at=NOW()
         WHERE id=${id}
-        RETURNING id,email,full_name,role,is_active,created_at,last_login_at
+        RETURNING id,email,full_name,role,is_active,must_change_password,created_at,last_login_at
       `;
       if(!rows[0]) return res.status(404).json({error:'Nie znaleziono użytkownika.'});
       return res.status(200).json(rows[0]);
