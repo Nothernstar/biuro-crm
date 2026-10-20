@@ -234,7 +234,8 @@ async function clientsView(){
        <div class="grid2">
          <label>NIP<div class="lookup-field"><input name="nip" inputmode="numeric" maxlength="10" placeholder="10 cyfr" required><button type="button" class="gus-btn" data-gus="nip">Pobierz dane</button></div></label>
          <label>REGON<input name="regon" inputmode="numeric" maxlength="14" placeholder="REGON"></label>
-         <label id="contactNameField">Imię i nazwisko<input name="contact_name" placeholder="np. Jan Kowalski"></label>
+         <label id="firstNameField">Imię<input name="first_name" placeholder="np. Jan"></label>
+         <label id="lastNameField">Nazwisko<input name="last_name" placeholder="np. Kowalski"></label>
          <label id="peselField">PESEL<input name="pesel" inputmode="numeric" maxlength="11" placeholder="11 cyfr"></label>
          <label id="krsField" class="hidden">KRS<input name="krs" inputmode="numeric" maxlength="10" placeholder="Numer KRS"></label>
        </div>
@@ -246,9 +247,9 @@ async function clientsView(){
  </div>`;
  const grid=$('#clientsGrid'),panel=$('#clientFormPanel'),form=$('#clientForm'),q=$('#clientSearch');
  const typeLabel=t=>t==='jdg'?'JDG':t==='company'?'Spółka':'Fundacja';
- const draw=()=>{const term=q.value.toLowerCase().trim();const filtered=clients.filter(x=>(x.name+' '+(x.contact_name||'')+' '+x.nip+' '+(x.regon||'')+' '+(x.krs||'')+' '+(x.pesel||'')).toLowerCase().includes(term));grid.innerHTML=filtered.length?filtered.map(x=>`
+ const draw=()=>{const term=q.value.toLowerCase().trim();const filtered=clients.filter(x=>(x.name+' '+(x.first_name||'')+' '+(x.last_name||'')+' '+(x.contact_name||'')+' '+x.nip+' '+(x.regon||'')+' '+(x.krs||'')+' '+(x.pesel||'')).toLowerCase().includes(term));grid.innerHTML=filtered.length?filtered.map(x=>`
    <article class="client-card">
-     <div class="client-card-top"><span class="client-avatar">${initials(x.name)}</span><div><h3>${x.name}</h3><p>${x.entity_type==='jdg'?(x.contact_name||'—'):typeLabel(x.entity_type)}</p></div><span class="entity-pill">${typeLabel(x.entity_type)}</span></div>
+     <div class="client-card-top"><span class="client-avatar">${initials(x.name)}</span><div><h3>${x.name}</h3><p>${x.entity_type==='jdg'?([x.first_name,x.last_name].filter(Boolean).join(' ')||x.contact_name||'—'):typeLabel(x.entity_type)}</p></div><span class="entity-pill">${typeLabel(x.entity_type)}</span></div>
      <div class="client-identifiers">
        <div><span>NIP</span><b>${x.nip}</b></div>
        <div><span>REGON</span><b>${x.regon||'—'}</b></div>
@@ -263,17 +264,19 @@ async function clientsView(){
    form.entity_type.value=type;
    document.querySelectorAll('[data-entity]').forEach(b=>b.classList.toggle('active',b.dataset.entity===type));
    const isJdg=type==='jdg';
-   $('#contactNameField').classList.toggle('hidden',!isJdg);
+   $('#firstNameField').classList.toggle('hidden',!isJdg);
+   $('#lastNameField').classList.toggle('hidden',!isJdg);
    $('#peselField').classList.toggle('hidden',!isJdg);
    $('#krsField').classList.toggle('hidden',isJdg);
-   form.contact_name.required=isJdg;
+   form.first_name.required=isJdg;
+   form.last_name.required=isJdg;
    form.pesel.required=isJdg;
    form.krs.required=!isJdg;
-   if(!isJdg){form.contact_name.value='';form.pesel.value=''}
+   if(!isJdg){form.first_name.value='';form.last_name.value='';form.pesel.value=''}
    if(isJdg)form.krs.value='';
  };
  const openNew=()=>{form.reset();form.id.value='';setEntity('jdg');$('#gusStatus').classList.add('hidden');$('#clientFormTitle').textContent='Nowy klient';panel.classList.remove('hidden')};
- const openEdit=id=>{const x=clients.find(v=>Number(v.id)===id);if(!x)return;form.id.value=x.id;form.name.value=x.name;form.nip.value=x.nip||'';form.regon.value=x.regon||'';form.contact_name.value=x.contact_name||'';form.pesel.value=x.pesel||'';form.krs.value=x.krs||'';setEntity(x.entity_type);$('#gusStatus').classList.add('hidden');$('#clientFormTitle').textContent='Edytuj klienta';panel.classList.remove('hidden')};
+ const openEdit=id=>{const x=clients.find(v=>Number(v.id)===id);if(!x)return;form.id.value=x.id;form.name.value=x.name;form.nip.value=x.nip||'';form.regon.value=x.regon||'';form.first_name.value=x.first_name||'';form.last_name.value=x.last_name||'';form.pesel.value=x.pesel||'';form.krs.value=x.krs||'';setEntity(x.entity_type);$('#gusStatus').classList.add('hidden');$('#clientFormTitle').textContent='Edytuj klienta';panel.classList.remove('hidden')};
  $('#openClientForm').onclick=openNew;$('#closeClientForm').onclick=()=>panel.classList.add('hidden');q.oninput=draw;
  document.querySelectorAll('[data-entity]').forEach(b=>b.onclick=()=>setEntity(b.dataset.entity));
  document.querySelectorAll('[data-gus]').forEach(b=>b.onclick=async()=>{
@@ -287,7 +290,8 @@ async function clientsView(){
      if(data.regon)form.regon.value=data.regon;
      if(data.krs)form.krs.value=data.krs;
      if(form.entity_type.value==='jdg'){
-       if(data.person_name)form.contact_name.value=data.person_name;
+       if(data.first_name)form.first_name.value=data.first_name;
+       if(data.last_name)form.last_name.value=data.last_name;
        if(data.pesel)form.pesel.value=data.pesel;
      }
      status.textContent='Dane pobrane z rejestru publicznego'+(data.source?' • '+data.source:'');
@@ -295,7 +299,7 @@ async function clientsView(){
    }catch(e){status.textContent=e.message;status.className='gus-status error'}
    finally{b.disabled=false;b.textContent='Pobierz dane'}
  });
- form.onsubmit=async e=>{e.preventDefault();const fd=Object.fromEntries(new FormData(form)),err=$('#clientFormError');err.classList.add('hidden');try{const payload={id:fd.id?Number(fd.id):undefined,name:fd.name,contact_name:fd.entity_type==='jdg'?fd.contact_name:'',entity_type:fd.entity_type,nip:fd.nip,regon:fd.regon,pesel:fd.entity_type==='jdg'?fd.pesel:'',krs:fd.entity_type==='jdg'?'':fd.krs};if(fd.id)await api('/api/clients',{method:'PATCH',body:JSON.stringify(payload)});else await api('/api/clients',{method:'POST',body:JSON.stringify(payload)});panel.classList.add('hidden');await clientsView()}catch(x){err.textContent=x.message;err.classList.remove('hidden')}};
+ form.onsubmit=async e=>{e.preventDefault();const fd=Object.fromEntries(new FormData(form)),err=$('#clientFormError');err.classList.add('hidden');try{const payload={id:fd.id?Number(fd.id):undefined,name:fd.name,first_name:fd.entity_type==='jdg'?fd.first_name:'',last_name:fd.entity_type==='jdg'?fd.last_name:'',entity_type:fd.entity_type,nip:fd.nip,regon:fd.regon,pesel:fd.entity_type==='jdg'?fd.pesel:'',krs:fd.entity_type==='jdg'?'':fd.krs};if(fd.id)await api('/api/clients',{method:'PATCH',body:JSON.stringify(payload)});else await api('/api/clients',{method:'POST',body:JSON.stringify(payload)});panel.classList.add('hidden');await clientsView()}catch(x){err.textContent=x.message;err.classList.remove('hidden')}};
  setEntity('jdg');draw();
 }
 
