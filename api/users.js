@@ -37,6 +37,12 @@ export default async function handler(req,res){
       if(!id) return res.status(400).json({error:'Brak id.'});
       if(Number(admin.id)===id && b.is_active===false) return res.status(400).json({error:'Nie możesz dezaktywować własnego konta.'});
       const role=b.role===undefined?null:(['admin','manager','employee'].includes(b.role)?b.role:null);
+      const email=b.email===undefined?null:String(b.email||'').trim().toLowerCase();
+      if(email==='') return res.status(400).json({error:'E-mail nie może być pusty.'});
+      if(email){
+        const duplicate=await sql`SELECT id FROM app_users WHERE lower(email)=${email} AND id<>${id} LIMIT 1`;
+        if(duplicate[0]) return res.status(409).json({error:'Konto z tym e-mailem już istnieje.'});
+      }
       if(b.password){
         const passwordHash=hashPassword(String(b.password));
         await sql`UPDATE app_users SET password_hash=${passwordHash},updated_at=NOW() WHERE id=${id}`;
@@ -44,6 +50,7 @@ export default async function handler(req,res){
       const rows=await sql`
         UPDATE app_users
         SET full_name=COALESCE(${b.full_name??null},full_name),
+            email=COALESCE(${email},email),
             role=COALESCE(${role},role),
             is_active=COALESCE(${b.is_active===undefined?null:Boolean(b.is_active)},is_active),
             updated_at=NOW()
