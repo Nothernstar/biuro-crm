@@ -2,25 +2,33 @@ import { db, ensureSchema } from '../lib/db.js';
 import { requireUser } from '../lib/auth.js';
 
 const defaults=[
+  'Pierwszy kontakt z leadem',
+  'Rozmowa / kwalifikacja potrzeb',
+  'Przygotowanie i wysłanie oferty',
+  'Ustalenie warunków współpracy',
+  'Zebranie danych do umowy',
+  'Podpisana umowa',
+  'Wysłano maila z kontaktem do opiekuna',
   'Dodanie kanału na Slacku',
+  'Ustalenie sposobu wymiany dokumentów',
   'Zestawienie klientów',
   'Rejestracja działalności',
-  'Podpisana umowa',
+  'Weryfikacja na wniosku do CEIDG formy opodatkowania',
+  'Dodanie rachunku bankowego do CEIDG',
   'Dopisanie do checklisty ZUS rejestracji',
   'Ustalenie sposobu opłacania ZUS',
   'Złożenie VAT-R',
+  'Weryfikacja GTU i ew. stawki ryczałtu',
+  'Weryfikacja białej listy',
   'Przekazanie instrukcji do złożenia pełnomocnictw',
-  'Dodanie rachunku bankowego do CEIDG',
   'Pełnomocnictwa złożone',
   'Pełnomocnictwa potwierdzone',
   'Dopytanie o koszty samochodu, mieszkania i opisanie',
-  'Weryfikacja na wniosku do CEIDG formy opodatkowania',
-  'Weryfikacja GTU i ew. stawki ryczałtu',
-  'Weryfikacja białej listy',
-  'Ustalenie sposobu wymiany dokumentów',
-  'Dodanie do Mailchimpa',
-  'Dodanie do fakturowni konta klienta i faktury cyklicznej',
+  'Dostępy i dokumenty do księgowości',
   'Połączenie KSeF',
+  'Dodanie do fakturowni konta klienta i faktury cyklicznej',
+  'Dodanie do Mailchimpa',
+  'Start obsługi klienta',
   'Zakończenie onboardingu - potwierdzenie wszystkiego powyżej'
 ];
 
@@ -43,6 +51,22 @@ export default async function handler(req,res){
     if(!(await assertLeadAccess(sql,user,leadId)))return res.status(403).json({error:'Brak dostępu do tego leada.'});
 
     if(req.method==='GET'){
+      await sql`
+        UPDATE lead_onboarding_items
+        SET title='Zebranie danych do umowy',updated_at=NOW()
+        WHERE lead_id=${leadId} AND title='Dane do umowy'
+      `;
+      await sql`
+        UPDATE lead_onboarding_items
+        SET title='Podpisana umowa',updated_at=NOW()
+        WHERE lead_id=${leadId} AND title='Umowa podpisana'
+      `;
+      await sql`
+        UPDATE lead_onboarding_items
+        SET title='Wysłano maila z kontaktem do opiekuna',updated_at=NOW()
+        WHERE lead_id=${leadId} AND title='Wysłano maila z kontaktem do opiekuna'
+      `;
+
       const existingItems=await sql`
         SELECT id,title FROM lead_onboarding_items WHERE lead_id=${leadId}
       `;
@@ -56,6 +80,20 @@ export default async function handler(req,res){
         `;
         addedDefaults++;
       }
+      for(let i=0;i<defaults.length;i++){
+        await sql`
+          UPDATE lead_onboarding_items
+          SET sort_order=${i+1},updated_at=NOW()
+          WHERE lead_id=${leadId} AND title=${defaults[i]}
+        `;
+      }
+      await sql`
+        UPDATE lead_onboarding_items
+        SET sort_order=1000+id
+        WHERE lead_id=${leadId}
+          AND title <> ALL(${defaults})
+      `;
+
       if(addedDefaults){
         await sql`
           INSERT INTO lead_events(lead_id,event_type,title,detail,actor_id,actor_name)
@@ -63,7 +101,7 @@ export default async function handler(req,res){
             ${leadId},
             'onboarding',
             ${existingItems.length?'Uzupełniono checklistę onboardingu':'Utworzono checklistę onboardingu'},
-            ${existingItems.length?'Dodano brakujące punkty checklisty.':'Domyślna checklista została dodana.'},
+            ${existingItems.length?'Dodano brakujące punkty i uporządkowano proces.':'Domyślna checklista została dodana.'},
             ${Number(user.id)},
             ${user.full_name}
           )
