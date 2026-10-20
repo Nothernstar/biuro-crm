@@ -14,7 +14,6 @@ const labels={
  history:['Historia zmian','Rejestr zmian w systemie.'],
  reminders:['Przypomnienia','Zadania i terminy wymagające działania.'],
  meetings:['Spotkania','Kalendarz spotkań z klientami i leadami.'],
- emails:['Wiadomości e-mail','Robocza skrzynka i status korespondencji.'],
  clients:['Klienci','Aktywni klienci biura rachunkowego.'],
  clientDetail:['Karta klienta','Dane księgowe i organizacyjne klienta.'],
  leads:['Leady / Potencjalni klienci','Pełna lista kontaktów sprzedażowych.'],
@@ -62,6 +61,7 @@ async function enterApp(){
  if(view==='pipeline')view='leads';
  if(['automations','sequences'].includes(view))view='templates';
  if(['offers','notes'].includes(view))view='leads';
+ if(view==='emails')view='dashboard';
  if(!labels[view]) view='dashboard';
  await render();
  await refreshNotifications();
@@ -159,7 +159,6 @@ async function dashboard(){
   ${actionTile('new-lead','♙','Dodaj lead','Wprowadź nowego potencjalnego klienta',true)}
   ${actionTile('task','✓','Dodaj zadanie','Ustaw zadanie dla siebie lub zespołu')}
   ${actionTile('meeting','▣','Umów spotkanie','Zaplanuj rozmowę z klientem')}
-  ${actionTile('note','✎','Dodaj notatkę','Zapisz ważne informacje o kliencie')}
  </div>
  <div class="section-row kpi-title"><h3>Najważniejsze wskaźniki</h3><span>Ten miesiąc</span></div>
  <div class="kpis premium">
@@ -177,7 +176,7 @@ async function dashboard(){
 function clientRow(l,fav=false){return `<div class="client-row"><span class="avatar-mini">${initials(l.company)}</span><div><b>${l.company}</b><small>${l.contact||l.stage}</small></div><span class="star">${fav?'★':'☆'}</span></div>`}
 function activityRow(r){return `<div class="activity-row"><span class="activity-dot"></span><span class="activity-time">${new Date(r.created_at).toLocaleTimeString('pl-PL',{hour:'2-digit',minute:'2-digit'})}</span><span class="activity-icon">●</span><div><b>${r.title}</b><small>${r.detail||''}</small></div><i>•••</i></div>`}
 function actionTile(action,icon,label,desc,active=false){return `<button class="action-tile ${active?'highlight':''}" data-action="${action}"><span>${icon}</span><div><b>${label}</b><small>${desc}</small></div></button>`}
-function bindDashboardActions(){document.querySelectorAll('[data-view-link]').forEach(b=>b.onclick=()=>{view=b.dataset.viewLink;localStorage.setItem('brcrm_view',view);render()});document.querySelectorAll('[data-action]').forEach(b=>b.onclick=()=>{const a=b.dataset.action;if(a==='new-lead')return $('#modal').classList.remove('hidden');const map={task:'reminders',meeting:'meetings',message:'emails',contact:'leads'};view=map[a]||'dashboard';render()})}
+function bindDashboardActions(){document.querySelectorAll('[data-view-link]').forEach(b=>b.onclick=()=>{view=b.dataset.viewLink;localStorage.setItem('brcrm_view',view);render()});document.querySelectorAll('[data-action]').forEach(b=>b.onclick=()=>{const a=b.dataset.action;if(a==='new-lead')return $('#modal').classList.remove('hidden');const map={task:'reminders',meeting:'meetings',contact:'leads'};view=map[a]||'dashboard';render()})}
 
 async function statsView(){
  const base=await api('/api/stats'),owners=base.owners.map(x=>x.owner);
