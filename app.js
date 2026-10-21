@@ -47,6 +47,7 @@ function applyCurrentUser(){
  $('#employeeName').textContent=name; $('#employeeRole').textContent=role; $('#employeeAvatar').textContent=initials(name);
  document.querySelectorAll('[data-admin-only]').forEach(el=>el.style.display=currentUser?.role==='admin'?'flex':'none');
  document.querySelectorAll('[data-stats-only]').forEach(el=>el.style.display=['admin','manager'].includes(currentUser?.role)?'flex':'none');
+ document.querySelectorAll('[data-settings-only]').forEach(el=>el.style.display=['admin','manager'].includes(currentUser?.role)?'flex':'none');
 }
 
 function showAuthForm(kind){
@@ -146,6 +147,7 @@ async function render(){
    if(view==='clientDetail')return await clientDetailView();
    if(view==='leads')return await leadTable();
    if(view==='leadDetail')return await leadDetailView();
+   if(view==='settings')return await settingsView();
    return await genericModule(view);
  }catch(e){
    if(e.message==='Wymagane logowanie.'){currentUser=null;return bootAuth()}
