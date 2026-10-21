@@ -1854,3 +1854,21 @@ button.reminder-row:hover{background:#fff}
   box-shadow:none;
 }
 .lead-list-row .lead-result-select.lead-result-pill:focus{box-shadow:0 0 0 2px rgba(239,51,64,.12)}
+
+
+/* Fit the lead table into the available desktop viewport. */
+@media(min-width:1100px){
+  .leads-list-head,.lead-list-row{
+    box-sizing:border-box;
+    width:100%;
+    min-width:0;
+    grid-template-columns:minmax(170px,2fr) minmax(105px,112px) minmax(65px,75px) minmax(85px,105px) minmax(145px,1.3fr) minmax(95px,105px) minmax(130px,145px) minmax(115px,135px);
+    gap:10px;
+    padding-left:12px;
+    padding-right:12px;
+  }
+  .lead-list-row>div{min-width:0}
+  .lead-owner-select{min-width:0}
+  .lead-row-actions{flex-wrap:wrap;gap:4px}
+  .lead-row-actions .secondary,.lead-row-actions .danger-ghost{padding:6px 8px}
+}
