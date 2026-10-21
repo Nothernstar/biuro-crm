@@ -4,7 +4,7 @@ let leads=[],view=localStorage.getItem('brcrm_view')||'dashboard',currentUser=nu
 
 const $=s=>document.querySelector(s);
 const app=$('#app'),title=$('#viewTitle'),subtitle=$('#subtitle'),crumb=$('#crumb'),addLeadBtn=$('#addLead');
-const authScreen=$('#authScreen'),appShell=$('#appShell'),authLoading=$('#authLoading'),loginForm=$('#loginForm'),setupForm=$('#setupForm'),changePasswordForm=$('#changePasswordForm');
+const bootScreen=$('#bootScreen'),authScreen=$('#authScreen'),appShell=$('#appShell'),authLoading=$('#authLoading'),loginForm=$('#loginForm'),setupForm=$('#setupForm'),changePasswordForm=$('#changePasswordForm');
 const notificationBtn=$('#notificationBtn'),notificationPanel=$('#notificationPanel'),notificationBadge=$('#notificationBadge'),notificationList=$('#notificationList'),notificationSummary=$('#notificationSummary');
 const employeeBtn=$('#employeeBtn'),employeePanel=$('#employeePanel'),employeeStats=$('#employeeStats'),employeeLeadList=$('#employeeLeadList');
 
@@ -49,6 +49,8 @@ function applyCurrentUser(){
 }
 
 function showAuthForm(kind){
+ bootScreen.classList.add('hidden');
+ authScreen.classList.remove('boot-hidden');
  authLoading.classList.add('hidden');
  loginForm.classList.toggle('hidden',kind!=='login');
  setupForm.classList.toggle('hidden',kind!=='setup');
@@ -56,7 +58,9 @@ function showAuthForm(kind){
 }
 async function enterApp(){
  applyCurrentUser();
+ bootScreen.classList.add('hidden');
  authScreen.classList.add('hidden');
+ authScreen.classList.remove('boot-hidden');
  appShell.classList.remove('auth-hidden');
  if(view==='pipeline')view='leads';
  if(['automations','sequences'].includes(view))view='templates';
@@ -68,7 +72,10 @@ async function enterApp(){
  await refreshNotifications();
 }
 async function bootAuth(){
- authScreen.classList.remove('hidden');appShell.classList.add('auth-hidden');
+ bootScreen.classList.remove('hidden');
+ authScreen.classList.add('boot-hidden');
+ authScreen.classList.remove('hidden');
+ appShell.classList.add('auth-hidden');
  authLoading.classList.remove('hidden');authLoading.textContent='Sprawdzanie systemu…';
  loginForm.classList.add('hidden');setupForm.classList.add('hidden');changePasswordForm.classList.add('hidden');
  try{
@@ -79,7 +86,12 @@ async function bootAuth(){
      await enterApp();return;
    }
    showAuthForm(state.setup_required?'setup':'login');
- }catch(e){authLoading.textContent='Nie udało się uruchomić logowania: '+e.message}
+ }catch(e){
+   bootScreen.classList.add('hidden');
+   authScreen.classList.remove('boot-hidden');
+   authLoading.classList.remove('hidden');
+   authLoading.textContent='Nie udało się uruchomić logowania: '+e.message;
+ }
 }
 
 loginForm.onsubmit=async e=>{
