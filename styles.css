@@ -1591,3 +1591,165 @@ button.reminder-row:hover{background:#fff}
   .settings-span-2{grid-column:auto}
   .settings-card{grid-template-columns:40px minmax(0,1fr);padding:14px}
 }
+
+
+/* Email template editor */
+.template-editor{position:relative;z-index:110}
+.template-editor-backdrop{
+  position:fixed;
+  inset:0;
+  z-index:110;
+  display:grid;
+  place-items:center;
+  padding:24px;
+  background:rgba(16,24,40,.42);
+  backdrop-filter:blur(3px);
+}
+.template-editor-card{
+  width:min(720px,100%);
+  max-height:90vh;
+  overflow:auto;
+  background:#fff;
+  border:1px solid var(--line);
+  border-radius:18px;
+  box-shadow:0 28px 80px rgba(16,24,40,.22);
+  padding:22px;
+}
+.template-editor-head{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  gap:16px;
+  padding-bottom:16px;
+  border-bottom:1px solid var(--line);
+}
+.template-editor-kicker{
+  display:block;
+  margin-bottom:5px;
+  font-size:9px;
+  font-weight:850;
+  letter-spacing:.8px;
+  color:var(--red);
+}
+.template-editor-head h2{margin:0;font-size:19px}
+.template-editor-head p{margin:6px 0 0;color:var(--muted);font-size:10px;line-height:1.45}
+.template-editor-close{
+  border:0;
+  background:transparent;
+  color:#727c8d;
+  font-size:26px;
+  cursor:pointer;
+  line-height:1;
+}
+.template-editor-fields{display:grid;gap:13px;margin-top:16px}
+.template-editor-fields label{margin:0;font-size:10px;font-weight:750;color:#566074}
+.template-editor-fields input[type="text"],
+.template-editor-fields input:not([type]),
+.template-editor-fields textarea{
+  width:100%;
+  border:1px solid #dfe4ed;
+  border-radius:11px;
+  padding:11px 12px;
+  background:#fff;
+  outline:none;
+  font-size:11px;
+  color:#252b36;
+}
+.template-editor-fields textarea{resize:vertical;line-height:1.5}
+.template-editor-fields input:focus,
+.template-editor-fields textarea:focus{
+  border-color:var(--red);
+  box-shadow:0 0 0 3px rgba(239,51,64,.09);
+}
+.template-files-field{gap:7px!important}
+.template-files-drop{
+  position:relative;
+  min-height:112px;
+  border:1px dashed #cfd6e2;
+  border-radius:13px;
+  background:#fafbfc;
+  display:grid;
+  place-items:center;
+  align-content:center;
+  gap:4px;
+  text-align:center;
+  cursor:pointer;
+  overflow:hidden;
+}
+.template-files-drop:hover{border-color:#f0aeb5;background:#fffafa}
+.template-files-drop input{
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100%;
+  opacity:0;
+  cursor:pointer;
+}
+.template-files-icon{
+  width:34px;height:34px;
+  display:grid;place-items:center;
+  border-radius:10px;
+  background:#fff0f1;
+  color:var(--red);
+  font-size:20px;
+}
+.template-files-drop b{font-size:11px;color:#303746}
+.template-files-drop small{font-size:9px;color:var(--muted)}
+.template-file-list{display:grid;gap:7px}
+.template-file-chip{
+  display:grid;
+  grid-template-columns:28px minmax(0,1fr) 28px;
+  align-items:center;
+  gap:9px;
+  padding:9px 10px;
+  border:1px solid var(--line);
+  border-radius:10px;
+  background:#fff;
+}
+.template-file-chip b{display:block;font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.template-file-chip small{display:block;margin-top:2px;font-size:8px;color:var(--muted)}
+.template-file-chip button{
+  border:0;background:transparent;color:#8d96a6;font-size:18px;cursor:pointer
+}
+.template-form-error{
+  padding:9px 11px;
+  border:1px solid #ffd0d4;
+  border-radius:10px;
+  background:#fff1f2;
+  color:#a71d27;
+  font-size:10px;
+}
+.template-editor-actions{
+  display:flex;
+  justify-content:flex-end;
+  gap:9px;
+  margin-top:18px;
+  padding-top:15px;
+  border-top:1px solid var(--line);
+}
+.template-attachments{
+  display:flex;
+  flex-wrap:wrap;
+  gap:6px;
+  margin-top:7px;
+}
+.template-attachment{
+  border:1px solid #e1e6ee;
+  background:#f8f9fb;
+  color:#596173;
+  border-radius:999px;
+  padding:5px 8px;
+  font-size:8px;
+  cursor:pointer;
+  max-width:180px;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.template-attachment:hover{border-color:#f0aeb5;color:var(--red);background:#fffafa}
+@media(max-width:640px){
+  .template-editor-backdrop{padding:12px}
+  .template-editor-card{padding:16px}
+  .template-editor-actions{flex-direction:column-reverse}
+  .template-editor-actions button{width:100%}
+}
