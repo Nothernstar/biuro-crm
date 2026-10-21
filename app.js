@@ -154,7 +154,7 @@ async function render(){
 }
 
 async function dashboard(){
- const data=await api('/api/dashboard');
+ const data=await api('/api/leads?dashboard=1');
  dashboardCache=data;
  leads=data.leads||[];
  const stats={totals:data.totals||{total:0}},hist=data.history||[],favoriteClients=data.favorites||[];
