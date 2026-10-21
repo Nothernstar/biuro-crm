@@ -16,6 +16,30 @@ export default async function handler(req,res){
       const rows=ownOnly
         ? await sql`SELECT id,company,contact,email,phone,source,mrr::float8 AS mrr,grade,lead_quality,stage,followup::text AS followup,note,owner,lead_result,result_note,closed_at,created_at,updated_at FROM leads WHERE owner=${user.full_name} ORDER BY created_at DESC`
         : await sql`SELECT id,company,contact,email,phone,source,mrr::float8 AS mrr,grade,lead_quality,stage,followup::text AS followup,note,owner,lead_result,result_note,closed_at,created_at,updated_at FROM leads ORDER BY created_at DESC`;
+
+      if(String(req.query.dashboard||'')==='1'){
+        const [totalRows,history,favorites,reminders]=await Promise.all([
+          sql`SELECT COUNT(*)::int AS total FROM leads`,
+          sql`SELECT id,module,title,detail,status,created_at,updated_at FROM module_items WHERE module='history' ORDER BY created_at DESC LIMIT 5`,
+          sql`
+            SELECT c.id,c.name,c.contact_name,c.contact_email,c.client_status,c.entity_type,f.created_at AS favorite_created_at
+            FROM client_favorites f
+            JOIN clients c ON c.id=f.client_id
+            WHERE f.user_id=${Number(user.id)}
+            ORDER BY f.created_at DESC
+            LIMIT 8
+          `,
+          sql`SELECT id,module,title,detail,status,created_at,updated_at FROM module_items WHERE module='reminders' ORDER BY created_at DESC LIMIT 10`
+        ]);
+        return res.status(200).json({
+          leads:rows,
+          totals:{total:totalRows[0]?.total||0},
+          history,
+          favorites,
+          reminders
+        });
+      }
+
       return res.status(200).json(rows);
     }
 
