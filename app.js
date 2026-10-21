@@ -1247,56 +1247,88 @@ async function remindersView(){
 
 async function genericModule(key){
  const rows=await api('/api/modules?module='+encodeURIComponent(key));
- const isHistory=key==='history';
- const isTemplates=key==='templates';
+ const isHistory=key==='history',isTemplates=key==='templates';
+ const esc=v=>String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+ const meta=r=>{try{const x=JSON.parse(r.status||'{}');return x&&typeof x==='object'?x:{attachments:[]}}catch{return {attachments:[]}}};
+
+ if(isTemplates){
+   app.innerHTML=
+     '<div class="templates-toolbar"><div class="clients-search"><span>⌕</span><input id="moduleSearch" placeholder="Szukaj w szablonach e-mail..."></div><button class="templates-add-btn" id="addModule">+ Dodaj szablon</button></div>'+
+     '<div class="templates-list-wrap"><div class="templates-list-head"><span>Szablon</span><span>Treść / opis</span><span>Data utworzenia</span><span>Akcje</span></div><div class="templates-list" id="moduleGrid"></div></div>'+
+     '<div class="template-editor hidden" id="templateEditor"><div class="template-editor-backdrop"><form class="template-editor-card" id="templateForm">'+
+       '<div class="template-editor-head"><div><span class="template-editor-kicker">NOWY SZABLON</span><h2>Dodaj szablon e-mail</h2><p>Wpisz tytuł, treść lub opis i opcjonalnie dołącz pliki.</p></div><button type="button" class="template-editor-close" id="closeTemplateEditor">×</button></div>'+
+       '<div class="template-editor-fields">'+
+         '<label>Tytuł szablonu<input name="title" required maxlength="160" placeholder="np. Dokumenty potrzebne do rozpoczęcia współpracy"></label>'+
+         '<label>Treść / opis<textarea name="detail" rows="8" placeholder="Wpisz treść wiadomości lub opis szablonu..."></textarea></label>'+
+         '<label class="template-files-field">Załączniki<span class="template-files-drop"><input id="templateFiles" type="file" multiple><span class="template-files-icon">＋</span><b>Dodaj pliki</b><small>Maksymalnie 3 pliki, łącznie do 3 MB.</small></span></label>'+
+         '<div class="template-file-list" id="templateFileList"></div><div class="template-form-error hidden" id="templateFormError"></div>'+
+       '</div><div class="template-editor-actions"><button type="button" class="secondary" id="cancelTemplateEditor">Anuluj</button><button class="primary" id="saveTemplateBtn">Zapisz szablon</button></div>'+
+     '</form></div></div>';
+
+   const draw=()=>{
+     const q=$('#moduleSearch').value.toLowerCase();
+     const filtered=rows.filter(r=>(r.title+' '+r.detail).toLowerCase().includes(q));
+     $('#moduleGrid').innerHTML=filtered.map(r=>{
+       const atts=Array.isArray(meta(r).attachments)?meta(r).attachments:[];
+       const chips=atts.length?'<div class="template-attachments">'+atts.map((a,i)=>'<button type="button" class="template-attachment" data-template-id="'+r.id+'" data-attachment-index="'+i+'">↧ '+esc(a.name)+'</button>').join('')+'</div>':'';
+       return '<div class="template-list-row"><div class="template-list-name"><span class="template-mail-icon">✉</span><div><b>'+esc(r.title)+'</b><small>Szablon e-mail'+(atts.length?' • '+atts.length+' zał.':'')+'</small></div></div><div class="template-list-detail"><span>'+esc(r.detail||'Brak opisu')+'</span>'+chips+'</div><time class="template-list-date">'+new Date(r.created_at).toLocaleDateString('pl-PL',{day:'2-digit',month:'2-digit',year:'numeric'})+'</time><div class="template-list-actions"><button class="delete-item danger-ghost" data-id="'+r.id+'">Usuń</button></div></div>';
+     }).join('')||'<div class="templates-empty"><span class="template-mail-icon">✉</span><b>Brak szablonów e-mail</b><p>Dodaj pierwszy szablon, żeby mieć gotowe treści wiadomości pod ręką.</p></div>';
+
+     document.querySelectorAll('.delete-item').forEach(b=>b.onclick=async()=>{await api('/api/modules?module=templates&id='+b.dataset.id,{method:'DELETE'});await render()});
+     document.querySelectorAll('.template-attachment').forEach(b=>b.onclick=()=>{
+       const row=rows.find(r=>String(r.id)===String(b.dataset.templateId));
+       const file=(meta(row||{}).attachments||[])[Number(b.dataset.attachmentIndex)];
+       if(!file||!file.data)return;
+       const a=document.createElement('a');a.href=file.data;a.download=file.name||'zalacznik';document.body.appendChild(a);a.click();a.remove();
+     });
+   };
+
+   $('#moduleSearch').oninput=draw;
+   const editor=$('#templateEditor'),form=$('#templateForm'),filesInput=$('#templateFiles'),fileList=$('#templateFileList'),error=$('#templateFormError');
+   let selectedFiles=[];
+   const close=()=>{editor.classList.add('hidden');form.reset();selectedFiles=[];fileList.innerHTML='';error.classList.add('hidden')};
+   const renderFiles=()=>{
+     fileList.innerHTML=selectedFiles.map((file,i)=>'<div class="template-file-chip"><span>📎</span><div><b>'+esc(file.name)+'</b><small>'+Math.ceil(file.size/1024)+' KB</small></div><button type="button" data-remove-template-file="'+i+'">×</button></div>').join('');
+     document.querySelectorAll('[data-remove-template-file]').forEach(b=>b.onclick=()=>{selectedFiles.splice(Number(b.dataset.removeTemplateFile),1);renderFiles()});
+   };
+   $('#addModule').onclick=()=>editor.classList.remove('hidden');
+   $('#closeTemplateEditor').onclick=$('#cancelTemplateEditor').onclick=close;
+   filesInput.onchange=()=>{
+     const combined=selectedFiles.concat(Array.from(filesInput.files||[]));
+     filesInput.value='';
+     if(combined.length>3){error.textContent='Możesz dodać maksymalnie 3 załączniki.';error.classList.remove('hidden');return}
+     if(combined.reduce((s,f)=>s+f.size,0)>3*1024*1024){error.textContent='Łączny rozmiar załączników nie może przekroczyć 3 MB.';error.classList.remove('hidden');return}
+     selectedFiles=combined;error.classList.add('hidden');renderFiles();
+   };
+   const readFile=file=>new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve({name:file.name,type:file.type||'application/octet-stream',size:file.size,data:reader.result});reader.onerror=()=>reject(new Error('Nie udało się odczytać pliku '+file.name));reader.readAsDataURL(file)});
+   form.onsubmit=async e=>{
+     e.preventDefault();error.classList.add('hidden');
+     const btn=$('#saveTemplateBtn');btn.disabled=true;btn.textContent='Zapisywanie…';
+     try{
+       const fd=new FormData(form),attachments=await Promise.all(selectedFiles.map(readFile));
+       await api('/api/modules',{method:'POST',body:JSON.stringify({module:'templates',title:String(fd.get('title')||'').trim(),detail:String(fd.get('detail')||'').trim(),status:JSON.stringify({attachments})})});
+       await render();
+     }catch(err){error.textContent=err.message||'Nie udało się zapisać szablonu.';error.classList.remove('hidden');btn.disabled=false;btn.textContent='Zapisz szablon'}
+   };
+   draw();return;
+ }
+
  app.innerHTML=isHistory
-   ?`<div class="history-toolbar"><div class="clients-search"><span>⌕</span><input id="moduleSearch" placeholder="Szukaj w historii zmian..."></div></div>
-      <div class="history-list-wrap">
-        <div class="history-list-head"><span>Zmiana</span><span>Szczegóły</span><span>Data i godzina</span><span>Akcje</span></div>
-        <div class="history-list" id="moduleGrid"></div>
-      </div>`
-   :isTemplates
-     ?`<div class="templates-toolbar">
-         <div class="clients-search"><span>⌕</span><input id="moduleSearch" placeholder="Szukaj w szablonach e-mail..."></div>
-         <button class="templates-add-btn" id="addModule">Dodaj szablon</button>
-       </div>
-       <div class="templates-list-wrap">
-         <div class="templates-list-head"><span>Szablon</span><span>Treść / opis</span><span>Data utworzenia</span><span>Akcje</span></div>
-         <div class="templates-list" id="moduleGrid"></div>
-       </div>`
-     :`<div class="module-actions"><button class="secondary" id="addModule">+ Dodaj</button><input id="moduleSearch" placeholder="Szukaj..."></div><div class="module-grid" id="moduleGrid"></div>`;
+   ?'<div class="history-toolbar"><div class="clients-search"><span>⌕</span><input id="moduleSearch" placeholder="Szukaj w historii zmian..."></div></div><div class="history-list-wrap"><div class="history-list-head"><span>Zmiana</span><span>Szczegóły</span><span>Data i godzina</span><span>Akcje</span></div><div class="history-list" id="moduleGrid"></div></div>'
+   :'<div class="module-actions"><button class="secondary" id="addModule">+ Dodaj</button><input id="moduleSearch" placeholder="Szukaj..."></div><div class="module-grid" id="moduleGrid"></div>';
+
  const draw=()=>{
-   const q=$('#moduleSearch').value.toLowerCase();
-   const filtered=rows.filter(r=>(r.title+' '+r.detail+' '+r.status).toLowerCase().includes(q));
-   $('#moduleGrid').innerHTML=filtered.map(r=>isHistory?`
-     <div class="history-list-row">
-       <div class="history-change">
-         <span class="history-list-icon">↻</span>
-         <b>${r.title}</b>
-       </div>
-       <div class="history-detail">${r.detail||r.status||'Zmiana w systemie'}</div>
-       <time class="history-date">${new Date(r.created_at).toLocaleString('pl-PL',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})}</time>
-       <div class="history-actions"><button class="delete-item danger-ghost" data-id="${r.id}">Usuń</button></div>
-     </div>`
-     :isTemplates?`
-     <div class="template-list-row">
-       <div class="template-list-name">
-         <span class="template-mail-icon">✉</span>
-         <div><b>${r.title}</b><small>Szablon e-mail</small></div>
-       </div>
-       <div class="template-list-detail">${r.detail||r.status||'Brak opisu'}</div>
-       <time class="template-list-date">${new Date(r.created_at).toLocaleDateString('pl-PL',{day:'2-digit',month:'2-digit',year:'numeric'})}</time>
-       <div class="template-list-actions"><button class="delete-item danger-ghost" data-id="${r.id}">Usuń</button></div>
-     </div>`
-     :`<div class="module-card"><div class="module-icon">#</div><div><b>${r.title}</b><span>${r.detail||r.status||''}</span></div><button class="delete-item" data-id="${r.id}">×</button></div>`
-   ).join('')||(isTemplates?'<div class="templates-empty"><span class="template-mail-icon">✉</span><b>Brak szablonów e-mail</b><p>Dodaj pierwszy szablon, żeby mieć gotowe treści wiadomości pod ręką.</p></div>':'<div class="empty card">Brak danych.</div>');
+   const q=$('#moduleSearch').value.toLowerCase(),filtered=rows.filter(r=>(r.title+' '+r.detail+' '+r.status).toLowerCase().includes(q));
+   $('#moduleGrid').innerHTML=filtered.map(r=>isHistory
+     ?'<div class="history-list-row"><div class="history-change"><span class="history-list-icon">↻</span><b>'+esc(r.title)+'</b></div><div class="history-detail">'+esc(r.detail||r.status||'Zmiana w systemie')+'</div><time class="history-date">'+new Date(r.created_at).toLocaleString('pl-PL',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})+'</time><div class="history-actions"><button class="delete-item danger-ghost" data-id="'+r.id+'">Usuń</button></div></div>'
+     :'<div class="module-card"><div class="module-icon">#</div><div><b>'+esc(r.title)+'</b><span>'+esc(r.detail||r.status||'')+'</span></div><button class="delete-item" data-id="'+r.id+'">×</button></div>'
+   ).join('')||'<div class="empty card">Brak danych.</div>';
    document.querySelectorAll('.delete-item').forEach(b=>b.onclick=async()=>{await api('/api/modules?module='+encodeURIComponent(key)+'&id='+b.dataset.id,{method:'DELETE'});await render()});
  };
  $('#moduleSearch').oninput=draw;
- if(!isHistory)$('#addModule').onclick=async()=>{const t=prompt(isTemplates?'Nazwa szablonu:':'Nazwa / tytuł:');if(!t)return;const d=prompt(isTemplates?'Treść lub opis szablonu:':'Opis / status:')||'';await api('/api/modules',{method:'POST',body:JSON.stringify({module:key,title:t,detail:d})});await render()};
+ if(!isHistory)$('#addModule').onclick=async()=>{const t=prompt('Nazwa / tytuł:');if(!t)return;const d=prompt('Opis / status:')||'';await api('/api/modules',{method:'POST',body:JSON.stringify({module:key,title:t,detail:d})});await render()};
  draw();
 }
-
 function notificationKey(n){return [n.type,n.id||'',n.title,n.date||''].join(':')}
 function readNotifications(){try{return new Set(JSON.parse(localStorage.getItem('brcrm.readNotifications')||'[]'))}catch{return new Set()}}
 function saveReadNotifications(set){localStorage.setItem('brcrm.readNotifications',JSON.stringify([...set]))}
