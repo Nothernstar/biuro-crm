@@ -1123,3 +1123,56 @@ button.reminder-row:hover{background:#fff}
 .auth-screen.boot-hidden{visibility:hidden}
 @keyframes bootSpin{to{transform:rotate(360deg)}}
 @media(prefers-reduced-motion:reduce){.boot-spinner{animation-duration:1.8s}}
+
+/* Per-user favorite clients */
+.client-favorite-toggle,
+.favorite-star{
+  border:0;
+  background:transparent;
+  color:#b7beca;
+  cursor:pointer;
+  display:inline-grid;
+  place-items:center;
+  padding:0;
+  transition:transform .15s ease,color .15s ease,background .15s ease;
+}
+.client-favorite-toggle{
+  width:28px;
+  height:28px;
+  border-radius:9px;
+  font-size:17px;
+  flex:0 0 28px;
+}
+.client-favorite-toggle:hover,
+.favorite-star:hover{
+  transform:scale(1.08);
+  color:var(--red);
+}
+.client-favorite-toggle.is-favorite,
+.favorite-star.is-favorite{
+  color:var(--red);
+}
+.favorite-client-row{
+  grid-template-columns:34px 1fr 28px;
+}
+.favorite-client-open{
+  border:0;
+  background:transparent;
+  text-align:left;
+  padding:0;
+  min-width:0;
+  cursor:pointer;
+  color:inherit;
+}
+.favorite-client-open b,
+.favorite-client-open small{
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.favorite-star{
+  width:28px;
+  height:28px;
+  border-radius:9px;
+  font-size:18px;
+}
