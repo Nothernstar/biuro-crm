@@ -1835,3 +1835,22 @@ button.reminder-row:hover{background:#fff}
   border-radius:10px;
 }
 .lead-list-row .lead-owner-select{padding-left:10px;padding-right:28px;background-position:right 9px center;}
+
+/* Status is a compact pill, not a full-width form field. */
+.lead-list-row .lead-result-select.lead-result-pill{
+  display:inline-block;
+  box-sizing:border-box;
+  width:auto;
+  min-width:0;
+  max-width:112px;
+  height:28px;
+  min-height:28px;
+  padding:0 22px 0 10px;
+  border-radius:999px;
+  font-size:12px;
+  font-weight:700;
+  background-position:right 6px center;
+  background-size:12px 12px;
+  box-shadow:none;
+}
+.lead-list-row .lead-result-select.lead-result-pill:focus{box-shadow:0 0 0 2px rgba(239,51,64,.12)}
