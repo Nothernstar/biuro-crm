@@ -1293,3 +1293,51 @@ button.reminder-row:hover{background:#fff}
 @media(max-width:900px){
   .lead-owner-select{min-width:132px}
 }
+
+
+/* Unified lead table typography */
+.leads-list-head{
+  font-size:10px;
+  font-weight:800;
+  letter-spacing:.5px;
+  text-transform:uppercase;
+  color:#8a93a5;
+}
+.lead-list-row{
+  font-size:13px;
+  line-height:1.35;
+  color:#2b3240;
+}
+.lead-list-row>div{
+  font-size:13px;
+}
+.lead-name-link{
+  font-size:13px;
+  font-weight:700;
+}
+.lead-list-main small{
+  font-size:10px;
+}
+.lead-result-pill,
+.lead-quality-pill,
+.lead-stage-pill{
+  min-height:28px;
+  padding:6px 11px;
+  font-size:12px;
+  font-weight:700;
+}
+.lead-email,
+.lead-owner{
+  font-size:13px;
+}
+.lead-owner-select{
+  font-size:13px;
+  font-weight:600;
+}
+.lead-row-actions .secondary,
+.lead-row-actions .danger-ghost{
+  min-height:36px;
+  padding:8px 12px;
+  font-size:12px;
+  font-weight:600;
+}
