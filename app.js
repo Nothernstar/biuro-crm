@@ -1104,7 +1104,16 @@ async function meetingsView(){
      cells.push(`<button type="button" class="calendar-day ${key===todayKey()?'is-today':''}" data-calendar-date="${key}">
        <span class="calendar-day-number">${day}</span>
        <span class="calendar-events">
-         ${dayMeetings.slice(0,3).map(m=>`<span class="calendar-event" data-meeting-id="${m.id}"><b>${String(m.start_time||'').slice(0,5)}</b> ${safe(m.title)}</span>`).join('')}
+         ${dayMeetings.length===1?dayMeetings.map(m=>{
+           const relation=m.client_name||m.lead_name||'Bez powiązania';
+           const relationType=m.client_name?'Klient':m.lead_name?'Lead':'';
+           return `<span class="calendar-event calendar-event-detailed" data-meeting-id="${m.id}">
+             <span class="calendar-event-time">${String(m.start_time||'').slice(0,5)}</span>
+             <span class="calendar-event-title">${safe(m.title)}</span>
+             <span class="calendar-event-meta">${relationType?'<b>'+relationType+':</b> ':''}${safe(relation)}</span>
+             <span class="calendar-event-owner"><b>Opiekun:</b> ${safe(m.owner_name||'Nieprzypisany')}</span>
+           </span>`;
+         }).join(''):dayMeetings.slice(0,3).map(m=>`<span class="calendar-event" data-meeting-id="${m.id}"><b>${String(m.start_time||'').slice(0,5)}</b> ${safe(m.title)}</span>`).join('')}
          ${dayMeetings.length>3?`<span class="calendar-more">+${dayMeetings.length-3} więcej</span>`:''}
        </span>
      </button>`);
