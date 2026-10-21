@@ -11,11 +11,14 @@ export default async function handler(req,res){
     const sql=db();
 
     if(req.method==='GET'){
-      const countRows=await sql`SELECT COUNT(*)::int AS count FROM app_users`;
       const user=await getCurrentUser(req).catch(()=>null);
-      return res.status(200).json({setup_required:countRows[0].count===0,user:user?{
-        id:Number(user.id),email:user.email,full_name:user.full_name,role:user.role,must_change_password:Boolean(user.must_change_password)
-      }:null});
+      if(user){
+        return res.status(200).json({setup_required:false,user:{
+          id:Number(user.id),email:user.email,full_name:user.full_name,role:user.role,must_change_password:Boolean(user.must_change_password)
+        }});
+      }
+      const countRows=await sql`SELECT COUNT(*)::int AS count FROM app_users`;
+      return res.status(200).json({setup_required:countRows[0].count===0,user:null});
     }
 
     if(req.method!=='POST') return res.status(405).json({error:'Method not allowed'});
@@ -57,16 +60,6 @@ export default async function handler(req,res){
       if(!user) return res.status(401).json({error:'Wymagane logowanie.'});
       const newPassword=String(b.password||'');
       const passwordHash=hashPassword(newPassword);
-      await sql`UPDATE app_users SET password_hash=${passwordHash},must_change_password=FALSE,updated_at=NOW() WHERE id=${user.id}`;
-      const updated={id:Number(user.id),email:user.email,full_name:user.full_name,role:user.role,must_change_password:false};
-      setSession(res,updated);
-      return res.status(200).json({user:updated});
-    }
-
-    if(b.action==='change_password'){
-      const user=await getCurrentUser(req);
-      if(!user) return res.status(401).json({error:'Wymagane logowanie.'});
-      const passwordHash=hashPassword(String(b.password||''));
       await sql`UPDATE app_users SET password_hash=${passwordHash},must_change_password=FALSE,updated_at=NOW() WHERE id=${user.id}`;
       const updated={id:Number(user.id),email:user.email,full_name:user.full_name,role:user.role,must_change_password:false};
       setSession(res,updated);
