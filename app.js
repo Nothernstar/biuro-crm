@@ -751,7 +751,11 @@ async function leadTable(){
          <span class="lead-avatar">${initials(l.company)}</span>
          <div><button type="button" class="lead-name-link open-lead" data-id="${l.id}">${l.company}</button><small>${l.note||'Brak opisu leada'}</small></div>
        </div>
-       <div><span class="lead-result-pill result-${l.lead_result||'in_progress'}">${l.lead_result==='won'?'Pozyskany':l.lead_result==='rejected'?'Odrzucony':'W trakcie'}</span></div>
+       <div><select class="lead-result-select lead-result-pill result-${l.lead_result||'in_progress'}" data-lead-result="${l.id}" aria-label="Zmień status leada">
+         <option value="in_progress" ${!l.lead_result||l.lead_result==='in_progress'?'selected':''}>W trakcie</option>
+         <option value="won" ${l.lead_result==='won'?'selected':''}>Pozyskany</option>
+         <option value="rejected" ${l.lead_result==='rejected'?'selected':''}>Odrzucony</option>
+       </select></div>
        <div><span class="lead-quality-pill quality-${(l.lead_quality||'Dobry').toLowerCase().replace('ł','l')}">${l.lead_quality||'Dobry'}</span></div>
        <div>${l.source||'—'}</div>
        <div class="lead-email">${l.email||'—'}</div>
@@ -769,6 +773,18 @@ async function leadTable(){
      </div>`).join(''):'<div class="empty leads-empty">Brak leadów pasujących do filtrów.</div>';
    document.querySelectorAll('.open-lead').forEach(b=>b.onclick=()=>{selectedLeadId=Number(b.dataset.id);localStorage.setItem('brcrm_lead_id',String(selectedLeadId));view='leadDetail';localStorage.setItem('brcrm_view',view);render()});
    document.querySelectorAll('.edit-lead').forEach(b=>b.onclick=()=>openLeadEdit(Number(b.dataset.id)));
+   document.querySelectorAll('[data-lead-result]').forEach(el=>el.onchange=async()=>{
+     const id=Number(el.dataset.leadResult),previous=leads.find(x=>Number(x.id)===id)?.lead_result||'in_progress';
+     el.disabled=true;
+     try{
+       const updated=await api('/api/leads',{method:'PATCH',body:JSON.stringify({id,lead_result:el.value})});
+       leads=leads.map(x=>Number(x.id)===id?updated:x);
+       draw();
+     }catch(e){
+       el.value=previous;
+       alert('Nie udało się zapisać statusu: '+e.message);
+     }finally{el.disabled=false}
+   });
    document.querySelectorAll('[data-lead-owner]').forEach(el=>el.onchange=async()=>{
      const id=Number(el.dataset.leadOwner),previous=leads.find(x=>Number(x.id)===id)?.owner||'Nieprzypisany';
      try{
