@@ -8,9 +8,10 @@ export default async function handler(req,res){
     await ensureSchema();
     const user=await requireUser(req,res);
     if(!user)return;
+    if(!['admin','manager'].includes(user.role)) return res.status(403).json({error:'Statystyki są dostępne tylko dla administratora i managera.'});
     const sql=db();
     const requested=typeof req.query.owner==='string'?req.query.owner:'';
-    const ownerFilter=user.role==='employee'?user.full_name:(requested&&requested!=='all'?requested:null);
+    const ownerFilter=requested&&requested!=='all'?requested:null;
 
     const totals=await sql`
       SELECT COUNT(*)::int AS total,
@@ -113,10 +114,27 @@ export default async function handler(req,res){
       ORDER BY m.month_start
     `;
 
-    const owners=user.role==='employee'
-      ? [{owner:user.full_name,count:totals[0].total,won_mrr:totals[0].won_mrr}]
-      : await sql`SELECT owner,COUNT(*)::int AS count,COALESCE(SUM(mrr) FILTER (WHERE stage='Wygrany'),0)::float8 AS won_mrr FROM leads GROUP BY owner ORDER BY owner`;
+    const owners=await sql`
+      SELECT u.full_name AS owner,
+        COUNT(l.id)::int AS count,
+        COUNT(l.id) FILTER (WHERE l.stage NOT IN ('Wygrany','Przegrany'))::int AS active,
+        COUNT(l.id) FILTER (WHERE l.lead_result='won')::int AS won,
+        COUNT(l.id) FILTER (WHERE l.lead_result='rejected')::int AS rejected,
+        COUNT(l.id) FILTER (WHERE l.followup=CURRENT_DATE AND l.stage NOT IN ('Wygrany','Przegrany'))::int AS followups_today,
+        COALESCE(SUM(l.mrr) FILTER (WHERE l.stage='Wygrany'),0)::float8 AS won_mrr,
+        CASE WHEN COUNT(l.id)=0 THEN 0
+          ELSE ROUND((COUNT(l.id) FILTER (WHERE l.lead_result='won')::numeric/COUNT(l.id)::numeric)*100,1)
+        END::float8 AS conversion
+      FROM app_users u
+      LEFT JOIN leads l ON l.owner=u.full_name
+      WHERE u.is_active=TRUE AND u.role IN ('employee','manager')
+      GROUP BY u.id,u.full_name
+      ORDER BY u.full_name
+    `;
 
-    return res.status(200).json({totals:totals[0],stages,sources,owners,client_status:clientStatus[0],client_flow:clientFlow,lead_flow:leadFlow});
+    return res.status(200).json({
+      totals:totals[0],stages,sources,owners,per_employee:owners,
+      client_status:clientStatus[0],client_flow:clientFlow,lead_flow:leadFlow
+    });
   }catch(e){console.error(e);return res.status(500).json({error:e.message||'Błąd serwera'})}
 }
