@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="title">
+<title>Piasecki Gągała</title>
+<defs>
+  <linearGradient id="r" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#ff4b55"/><stop offset=".55" stop-color="#df2633"/><stop offset="1" stop-color="#a80f1b"/></linearGradient>
+  <linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#8b93a0"/><stop offset=".5" stop-color="#424955"/><stop offset="1" stop-color="#171b22"/></linearGradient>
+</defs>
+<path fill="url(#r)" d="M22 92V38L51 13h47L80 31H58L43 44v48H22Zm21-31h32l17-16H59L43 58v3Z"/>
+<path fill="url(#g)" d="M43 96V69h20v10h17V63H66l18-17h22v50H43Z"/>
+</svg>
