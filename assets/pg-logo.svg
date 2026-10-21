@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 132" role="img" aria-labelledby="title desc">
+<title id="title">Piasecki Gągała</title><desc id="desc">Biuro Rachunkowe</desc>
+<defs>
+  <linearGradient id="r" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#ff4b55"/><stop offset=".55" stop-color="#df2633"/><stop offset="1" stop-color="#a80f1b"/></linearGradient>
+  <linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#8b93a0"/><stop offset=".5" stop-color="#424955"/><stop offset="1" stop-color="#171b22"/></linearGradient>
+</defs>
+<g transform="translate(8 8) scale(.82)">
+  <path fill="url(#r)" d="M22 92V38L51 13h47L80 31H58L43 44v48H22Zm21-31h32l17-16H59L43 58v3Z"/>
+  <path fill="url(#g)" d="M43 96V69h20v10h17V63H66l18-17h22v50H43Z"/>
+</g>
+<text x="118" y="62" fill="#232834" font-family="Inter,Arial,sans-serif" font-size="42" font-weight="800" letter-spacing="1.5">PIASECKI</text>
+<rect x="334" y="28" width="5" height="43" rx="2.5" fill="#e32b38"/>
+<text x="358" y="62" fill="#232834" font-family="Inter,Arial,sans-serif" font-size="42" font-weight="800" letter-spacing="1.5">GĄGAŁA</text>
+<line x1="119" y1="98" x2="258" y2="98" stroke="#b7bdc7" stroke-width="1.5"/>
+<text x="278" y="103" fill="#737b88" font-family="Inter,Arial,sans-serif" font-size="16" font-weight="600" letter-spacing="5">BIURO RACHUNKOWE</text>
+<line x1="514" y1="98" x2="620" y2="98" stroke="#b7bdc7" stroke-width="1.5"/>
+</svg>
