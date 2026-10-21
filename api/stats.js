@@ -13,7 +13,7 @@ export default async function handler(req,res){
     const requested=typeof req.query.owner==='string'?req.query.owner:'';
     const ownerFilter=requested&&requested!=='all'?requested:null;
 
-    const totals=await sql`
+    const totalsPromise=sql`
       SELECT COUNT(*)::int AS total,
         COUNT(*) FILTER (WHERE stage NOT IN ('Wygrany','Przegrany'))::int AS active,
         COUNT(*) FILTER (WHERE stage='Wygrany')::int AS won,
@@ -23,9 +23,10 @@ export default async function handler(req,res){
         CASE WHEN COUNT(*)=0 THEN 0 ELSE ROUND((COUNT(*) FILTER (WHERE stage='Wygrany')::numeric/COUNT(*)::numeric)*100,1) END::float8 AS conversion
       FROM leads WHERE (${ownerFilter}::text IS NULL OR owner=${ownerFilter})`;
 
-    const stages=await sql`SELECT stage,COUNT(*)::int AS count,COALESCE(SUM(mrr),0)::float8 AS mrr FROM leads WHERE (${ownerFilter}::text IS NULL OR owner=${ownerFilter}) GROUP BY stage ORDER BY MIN(created_at)`;
-    const sources=await sql`SELECT source,COUNT(*)::int AS count,COALESCE(SUM(mrr),0)::float8 AS mrr,COUNT(*) FILTER (WHERE stage='Wygrany')::int AS won FROM leads WHERE (${ownerFilter}::text IS NULL OR owner=${ownerFilter}) GROUP BY source ORDER BY count DESC,source ASC`;
-    const clientStatus=await sql`
+    const stagesPromise=sql`SELECT stage,COUNT(*)::int AS count,COALESCE(SUM(mrr),0)::float8 AS mrr FROM leads WHERE (${ownerFilter}::text IS NULL OR owner=${ownerFilter}) GROUP BY stage ORDER BY MIN(created_at)`;
+    const sourcesPromise=sql`SELECT source,COUNT(*)::int AS count,COALESCE(SUM(mrr),0)::float8 AS mrr,COUNT(*) FILTER (WHERE stage='Wygrany')::int AS won FROM leads WHERE (${ownerFilter}::text IS NULL OR owner=${ownerFilter}) GROUP BY source ORDER BY count DESC,source ASC`;
+
+    const clientStatusPromise=sql`
       SELECT
         COUNT(*)::int AS total,
         COUNT(*) FILTER (WHERE client_status='active')::int AS active,
@@ -36,7 +37,7 @@ export default async function handler(req,res){
       FROM clients
     `;
 
-    const clientFlow=await sql`
+    const clientFlowPromise=sql`
       WITH months AS (
         SELECT generate_series(
           date_trunc('month', CURRENT_DATE)-interval '5 months',
@@ -78,7 +79,7 @@ export default async function handler(req,res){
       ORDER BY m.month_start
     `;
 
-    const leadFlow=await sql`
+    const leadFlowPromise=sql`
       WITH months AS (
         SELECT generate_series(
           date_trunc('month', CURRENT_DATE)-interval '5 months',
@@ -114,7 +115,7 @@ export default async function handler(req,res){
       ORDER BY m.month_start
     `;
 
-    const owners=await sql`
+    const ownersPromise=sql`
       SELECT u.full_name AS owner,
         COUNT(l.id)::int AS count,
         COUNT(l.id) FILTER (WHERE l.stage NOT IN ('Wygrany','Przegrany'))::int AS active,
@@ -131,6 +132,10 @@ export default async function handler(req,res){
       GROUP BY u.id,u.full_name
       ORDER BY u.full_name
     `;
+
+    const [totals,stages,sources,clientStatus,clientFlow,leadFlow,owners]=await Promise.all([
+      totalsPromise,stagesPromise,sourcesPromise,clientStatusPromise,clientFlowPromise,leadFlowPromise,ownersPromise
+    ]);
 
     return res.status(200).json({
       totals:totals[0],stages,sources,owners,per_employee:owners,
