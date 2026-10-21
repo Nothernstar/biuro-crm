@@ -46,6 +46,7 @@ function applyCurrentUser(){
  $('#userName').textContent=name; $('#userRole').textContent=role; $('#userInitials').textContent=initials(name);
  $('#employeeName').textContent=name; $('#employeeRole').textContent=role; $('#employeeAvatar').textContent=initials(name);
  document.querySelectorAll('[data-admin-only]').forEach(el=>el.style.display=currentUser?.role==='admin'?'flex':'none');
+ document.querySelectorAll('[data-stats-only]').forEach(el=>el.style.display=['admin','manager'].includes(currentUser?.role)?'flex':'none');
 }
 
 function showAuthForm(kind){
@@ -209,6 +210,9 @@ function bindDashboardActions(){
 }
 
 async function statsView(){
+ if(!['admin','manager'].includes(currentUser?.role)){
+   view='dashboard';localStorage.setItem('brcrm_view',view);return render();
+ }
  const base=await api('/api/stats'),owners=base.owners.map(x=>x.owner);
  app.innerHTML=`
  <div class="stats-toolbar"><label>Statystyki dla<select id="statsOwner"><option value="all">Cały zespół</option>${owners.map(o=>`<option value="${o}">${o}</option>`).join('')}</select></label></div>
@@ -225,6 +229,21 @@ async function statsView(){
      <div class="kpi-card peach"><div><span>Wygrane</span><b>${t.won}</b><small>pozyskani klienci</small></div></div>
      <div class="kpi-card blue"><div><span>Konwersja</span><b>${t.conversion}%</b><small>lead → klient</small></div></div>
    </div>
+
+   ${owner==='all'?`
+   <div class="section-row stats-section-title"><h3>Wyniki pracowników</h3><span>Porównanie aktywnego zespołu</span></div>
+   <div class="employee-stats-grid">
+     ${(data.per_employee||[]).map(x=>`
+       <button type="button" class="employee-stat-card" data-stats-employee="${x.owner}">
+         <div class="employee-stat-head"><span class="employee-stat-avatar">${initials(x.owner)}</span><div><b>${x.owner}</b><small>${x.active} aktywnych leadów</small></div></div>
+         <div class="employee-stat-metrics">
+           <span><small>Leady</small><b>${x.count}</b></span>
+           <span><small>Pozyskane</small><b>${x.won}</b></span>
+           <span><small>Konwersja</small><b>${x.conversion}%</b></span>
+           <span><small>Follow-up dziś</small><b>${x.followups_today}</b></span>
+         </div>
+       </button>`).join('')}
+   </div>`:''}
 
    <div class="section-row stats-section-title"><h3>Klienci obecnie</h3><span>Stan obsługi na dziś</span></div>
    <div class="client-status-kpis">
@@ -262,6 +281,12 @@ async function statsView(){
      <div class="card"><h3>Etapy leadów</h3>${data.stages.map(x=>`<div class="metric"><span>${x.stage}</span><b>${x.count}</b></div>`).join('')}</div>
      <div class="card"><h3>Źródła leadów</h3>${data.sources.map(x=>`<div class="metric"><span>${x.source}</span><b>${x.won}/${x.count}</b></div>`).join('')}</div>
    </div>`;
+   document.querySelectorAll('[data-stats-employee]').forEach(btn=>btn.onclick=()=>{
+     const select=$('#statsOwner');
+     select.value=btn.dataset.statsEmployee;
+     draw();
+     window.scrollTo({top:0,behavior:'smooth'});
+   });
  };
  const select=$('#statsOwner');select.onchange=draw;
  if(currentUser.role==='employee'){select.innerHTML=`<option value="${currentEmployeeName()}">${currentEmployeeName()}</option>`;select.disabled=true}
@@ -1295,7 +1320,7 @@ async function refreshEmployeePanel(){
 }
 employeeBtn.onclick=async e=>{e.stopPropagation();notificationPanel.classList.add('hidden');employeePanel.classList.toggle('hidden');if(!employeePanel.classList.contains('hidden'))await refreshEmployeePanel()};
 $('#employeeAllLeads').onclick=()=>{employeePanel.classList.add('hidden');pendingOwnerFilter=currentEmployeeName();view='leads';render()};
-document.querySelectorAll('[data-employee-action]').forEach(b=>b.onclick=()=>{employeePanel.classList.add('hidden');const a=b.dataset.employeeAction;if(a==='leads'){pendingOwnerFilter=currentEmployeeName();view='leads'}if(a==='stats'){pendingOwnerFilter=currentEmployeeName();view='stats'}if(a==='reminders')view='reminders';render()});
+document.querySelectorAll('[data-employee-action]').forEach(b=>b.onclick=()=>{employeePanel.classList.add('hidden');const a=b.dataset.employeeAction;if(a==='leads'){pendingOwnerFilter=currentEmployeeName();view='leads'}if(a==='stats'&&['admin','manager'].includes(currentUser?.role)){pendingOwnerFilter=currentEmployeeName();view='stats'}if(a==='reminders')view='reminders';render()});
 document.addEventListener('click',e=>{if(!e.target.closest('.notification-wrap'))notificationPanel.classList.add('hidden');if(!e.target.closest('.employee-wrap'))employeePanel.classList.add('hidden')});
 
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{view=b.dataset.view;localStorage.setItem('brcrm_view',view);render()});
