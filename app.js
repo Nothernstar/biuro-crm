@@ -1,6 +1,6 @@
 // deploy sync after reconnect
 const stages=['Nowy lead','Do kontaktu','Kontakt wykonany','Kwalifikacja','Oferta','Follow-up','Wygrany','Przegrany'];
-let leads=[],view=localStorage.getItem('brcrm_view')||'dashboard',currentUser=null,pendingOwnerFilter=null,selectedClientId=Number(localStorage.getItem('brcrm_client_id')||0)||null,selectedLeadId=Number(localStorage.getItem('brcrm_lead_id')||0)||null,dashboardTimerId=null;
+let leads=[],view=localStorage.getItem('brcrm_view')||'dashboard',currentUser=null,pendingOwnerFilter=null,selectedClientId=Number(localStorage.getItem('brcrm_client_id')||0)||null,selectedLeadId=Number(localStorage.getItem('brcrm_lead_id')||0)||null,dashboardTimerId=null,dashboardCache=null;
 
 const $=s=>document.querySelector(s);
 const app=$('#app'),title=$('#viewTitle'),subtitle=$('#subtitle'),crumb=$('#crumb'),addLeadBtn=$('#addLead');
@@ -153,12 +153,10 @@ async function render(){
 }
 
 async function dashboard(){
- await loadLeads();
- const [stats,hist,favoriteClients]=await Promise.all([
-   api('/api/stats'),
-   api('/api/modules?module=history').catch(()=>[]),
-   api('/api/client-favorites').catch(()=>[])
- ]);
+ const data=await api('/api/dashboard');
+ dashboardCache=data;
+ leads=data.leads||[];
+ const stats={totals:data.totals||{total:0}},hist=data.history||[],favoriteClients=data.favorites||[];
  const mine=currentUser.role==='employee'?leads.filter(l=>l.owner===currentEmployeeName()):leads;
  const active=mine.find(l=>!['Wygrany','Przegrany'].includes(l.stage))||mine[0]||null;
  const recent=mine.slice(0,5);
@@ -190,6 +188,7 @@ async function dashboard(){
  bindDashboardActions();
  document.querySelectorAll('[data-dashboard-favorite]').forEach(b=>b.onclick=async()=>{
    await api('/api/client-favorites?client_id='+b.dataset.dashboardFavorite,{method:'DELETE'});
+   dashboardCache=null;
    await dashboard();
  });
  if(active){
@@ -1275,7 +1274,11 @@ function notificationKey(n){return [n.type,n.id||'',n.title,n.date||''].join(':'
 function readNotifications(){try{return new Set(JSON.parse(localStorage.getItem('brcrm.readNotifications')||'[]'))}catch{return new Set()}}
 function saveReadNotifications(set){localStorage.setItem('brcrm.readNotifications',JSON.stringify([...set]))}
 async function buildNotifications(){
- await loadLeads();const reminders=await api('/api/modules?module=reminders').catch(()=>[]),today=new Date().toISOString().slice(0,10),base=currentUser.role==='employee'?leads.filter(l=>l.owner===currentEmployeeName()):leads,items=[];
+ const cached=dashboardCache;
+ if(cached?.leads)leads=cached.leads;
+ else await loadLeads();
+ const reminders=cached?.reminders||await api('/api/modules?module=reminders').catch(()=>[]);
+ const today=new Date().toISOString().slice(0,10),base=currentUser.role==='employee'?leads.filter(l=>l.owner===currentEmployeeName()):leads,items=[];
  base.forEach(l=>{if(l.followup&&l.followup<today&&!['Wygrany','Przegrany'].includes(l.stage))items.push({type:'overdue',id:l.id,title:'Zaległy follow-up',detail:l.company,date:l.followup,view:'leadDetail',priority:3});if(l.followup===today&&!['Wygrany','Przegrany'].includes(l.stage))items.push({type:'today',id:l.id,title:'Follow-up na dziś',detail:l.company,date:l.followup,view:'leadDetail',priority:2});if((!l.owner||l.owner==='Nieprzypisany')&&currentUser.role!=='employee'&&!['Wygrany','Przegrany'].includes(l.stage))items.push({type:'owner',id:l.id,title:'Lead bez opiekuna',detail:l.company,date:l.created_at,view:'leads',priority:2})});
  reminders.slice(0,10).forEach(r=>items.push({type:'reminder',id:r.id,title:r.title||'Przypomnienie',detail:r.detail||'',date:r.created_at,view:'reminders',priority:1}));
  return items.sort((a,b)=>b.priority-a.priority).slice(0,20);
@@ -1309,7 +1312,7 @@ addLeadBtn.onclick=async()=>{
   modal.classList.remove('hidden');
 };
 $('#closeModal').onclick=()=>modal.classList.add('hidden');
-$('#leadForm').onsubmit=async e=>{e.preventDefault();const d=Object.fromEntries(new FormData(e.target));try{await api('/api/leads',{method:'POST',body:JSON.stringify({...d,stage:'Nowy lead'})});e.target.reset();modal.classList.add('hidden');await render();await refreshNotifications()}catch(err){alert(err.message)}};
+$('#leadForm').onsubmit=async e=>{e.preventDefault();const d=Object.fromEntries(new FormData(e.target));try{await api('/api/leads',{method:'POST',body:JSON.stringify({...d,stage:'Nowy lead'})});dashboardCache=null;e.target.reset();modal.classList.add('hidden');await render();await refreshNotifications()}catch(err){alert(err.message)}};
 $('#globalSearch').oninput=async e=>{const q=e.target.value.trim();if(q.length<2)return;try{await loadLeads();const base=currentUser.role==='employee'?leads.filter(l=>l.owner===currentEmployeeName()):leads;if(base.some(l=>(l.company+' '+l.contact+' '+l.email+' '+l.owner).toLowerCase().includes(q.toLowerCase()))){view='leads';await render();const inp=$('#q');if(inp){inp.value=q;inp.dispatchEvent(new Event('input'))}}}catch{}};
 
 bootAuth();
