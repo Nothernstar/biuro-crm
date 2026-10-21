@@ -154,11 +154,14 @@ async function render(){
 
 async function dashboard(){
  await loadLeads();
- const stats=await api('/api/stats');
- const hist=await api('/api/modules?module=history').catch(()=>[]);
+ const [stats,hist,favoriteClients]=await Promise.all([
+   api('/api/stats'),
+   api('/api/modules?module=history').catch(()=>[]),
+   api('/api/client-favorites').catch(()=>[])
+ ]);
  const mine=currentUser.role==='employee'?leads.filter(l=>l.owner===currentEmployeeName()):leads;
  const active=mine.find(l=>!['Wygrany','Przegrany'].includes(l.stage))||mine[0]||null;
- const recent=mine.slice(0,5),won=mine.filter(l=>l.stage==='Wygrany').slice(0,5);
+ const recent=mine.slice(0,5);
  const today=new Date().toISOString().slice(0,10);
  const followups=mine.filter(l=>l.followup===today).length;
  app.innerHTML=`
@@ -167,7 +170,7 @@ async function dashboard(){
   <div class="active-lead">
    ${active?`<div class="active-left"><div class="eyebrow">● AKTYWNY LEAD</div><div class="timer" id="liveTimer">${elapsed(active.updated_at||active.created_at)}</div><div class="timer-label">◴ Czas od ostatniej aktywności</div><div class="hero-chips"><span>▣ Ostatni kontakt: ${datePL(active.updated_at||active.created_at)}</span><span>♙ Opiekun: ${active.owner||'Nieprzypisany'}</span></div></div><div class="active-right"><div><h3>${active.company}</h3><p>${active.email||active.phone||'Brak danych kontaktowych'}</p></div><div class="stage-block"><span>Etap w sprzedaży</span><b>${active.stage}</b></div><button class="contact-btn" data-action="contact">☎ Skontaktuj się</button></div>`:`<div class="empty-lead"><b>Brak aktywnych leadów</b><span>Dodaj pierwszy rekord lub przypisz lead do tego pracownika.</span><button class="contact-btn" data-action="new-lead">+ Dodaj lead</button></div>`}
   </div>
-  <div class="side-card"><div class="side-title"><h3>Ulubieni klienci</h3><button data-view-link="clients">Zobacz wszystkich →</button></div>${(won.length?won:recent).map((l,i)=>clientRow(l,i===0)).join('')||'<div class="mini-empty">Brak klientów</div>'}</div>
+  <div class="side-card"><div class="side-title"><h3>Ulubieni klienci</h3><button data-view-link="clients">Zobacz wszystkich →</button></div>${favoriteClients.map(favoriteClientRow).join('')||'<div class="mini-empty">Nie masz jeszcze ulubionych klientów.</div>'}</div>
  </div>
  <div class="section-row"><h3>Wybierz czynność</h3><span>Szybkie akcje do codziennej pracy w CRM.</span></div>
  <div class="actions-grid">
@@ -185,6 +188,10 @@ async function dashboard(){
   <div class="side-card recent"><div class="side-title"><h3>Ostatnio używani</h3><button data-view-link="leads">Zobacz wszystkich →</button></div>${recent.map(clientRow).join('')||'<div class="mini-empty">Brak rekordów</div>'}</div>
  </div>`;
  bindDashboardActions();
+ document.querySelectorAll('[data-dashboard-favorite]').forEach(b=>b.onclick=async()=>{
+   await api('/api/client-favorites?client_id='+b.dataset.dashboardFavorite,{method:'DELETE'});
+   await dashboard();
+ });
  if(active){
   const activeTs=active.updated_at||active.created_at;
   const tick=()=>{const el=$('#liveTimer');if(!el){if(dashboardTimerId){clearInterval(dashboardTimerId);dashboardTimerId=null}return}el.textContent=elapsed(activeTs)};
@@ -193,9 +200,14 @@ async function dashboard(){
  }
 }
 function clientRow(l,fav=false){return `<div class="client-row"><span class="avatar-mini">${initials(l.company)}</span><div><b>${l.company}</b><small>${l.contact||l.stage}</small></div><span class="star">${fav?'★':'☆'}</span></div>`}
+function favoriteClientRow(c){return `<div class="client-row favorite-client-row"><span class="avatar-mini">${initials(c.name)}</span><button type="button" class="favorite-client-open" data-client-favorite-open="${c.id}"><b>${c.name}</b><small>${c.contact_name||c.contact_email||'Klient'}</small></button><button type="button" class="star favorite-star is-favorite" data-dashboard-favorite="${c.id}" aria-label="Usuń z ulubionych">★</button></div>`}
 function activityRow(r){return `<div class="activity-row"><span class="activity-dot"></span><span class="activity-time">${new Date(r.created_at).toLocaleTimeString('pl-PL',{hour:'2-digit',minute:'2-digit'})}</span><span class="activity-icon">●</span><div><b>${r.title}</b><small>${r.detail||''}</small></div><i>•••</i></div>`}
 function actionTile(action,icon,label,desc,active=false){return `<button class="action-tile ${active?'highlight':''}" data-action="${action}"><span>${icon}</span><div><b>${label}</b><small>${desc}</small></div></button>`}
-function bindDashboardActions(){document.querySelectorAll('[data-view-link]').forEach(b=>b.onclick=()=>{view=b.dataset.viewLink;localStorage.setItem('brcrm_view',view);render()});document.querySelectorAll('[data-action]').forEach(b=>b.onclick=()=>{const a=b.dataset.action;if(a==='new-lead')return $('#modal').classList.remove('hidden');const map={task:'reminders',meeting:'meetings',contact:'leads'};view=map[a]||'dashboard';render()})}
+function bindDashboardActions(){
+ document.querySelectorAll('[data-view-link]').forEach(b=>b.onclick=()=>{view=b.dataset.viewLink;localStorage.setItem('brcrm_view',view);render()});
+ document.querySelectorAll('[data-client-favorite-open]').forEach(b=>b.onclick=()=>{selectedClientId=Number(b.dataset.clientFavoriteOpen);localStorage.setItem('brcrm_client_id',String(selectedClientId));view='clientDetail';localStorage.setItem('brcrm_view',view);render()});
+ document.querySelectorAll('[data-action]').forEach(b=>b.onclick=()=>{const a=b.dataset.action;if(a==='new-lead')return $('#modal').classList.remove('hidden');const map={task:'reminders',meeting:'meetings',contact:'leads'};view=map[a]||'dashboard';render()})
+}
 
 async function statsView(){
  const base=await api('/api/stats'),owners=base.owners.map(x=>x.owner);
@@ -278,7 +290,8 @@ async function usersView(){
 }
 
 async function clientsView(){
- const clients=await api('/api/clients');
+ const [clients,favorites]=await Promise.all([api('/api/clients'),api('/api/client-favorites').catch(()=>[])]);
+ const favoriteIds=new Set(favorites.map(x=>Number(x.id)));
  app.innerHTML=`
  <div class="clients-toolbar">
    <div class="clients-toolbar-left">
@@ -356,7 +369,7 @@ async function clientsView(){
      .sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''),'pl',{sensitivity:'base'})*(sort==='desc'?-1:1));
    grid.innerHTML=filtered.length?filtered.map(x=>`
      <div class="client-list-row">
-       <div class="client-list-name"><span class="client-avatar">${initials(x.name)}</span><button class="client-name-link open-client" data-id="${x.id}" type="button">${x.name}</button></div>
+       <div class="client-list-name"><button type="button" class="client-favorite-toggle ${favoriteIds.has(Number(x.id))?'is-favorite':''}" data-client-favorite="${x.id}" aria-label="${favoriteIds.has(Number(x.id))?'Usuń z ulubionych':'Dodaj do ulubionych'}">${favoriteIds.has(Number(x.id))?'★':'☆'}</button><span class="client-avatar">${initials(x.name)}</span><button class="client-name-link open-client" data-id="${x.id}" type="button">${x.name}</button></div>
        <div><span class="client-status-pill status-${x.client_status||'active'}">${statusLabel(x.client_status)}</span></div>
        <div><span class="entity-pill ${!x.entity_type?'entity-incomplete':''}">${typeLabel(x.entity_type)}</span></div>
        <div>${x.entity_type==='jdg'?(x.first_name||'—'):'—'}</div>
@@ -367,6 +380,14 @@ async function clientsView(){
        <div class="client-row-actions"><button class="primary-mini open-client" data-id="${x.id}">Otwórz</button><button class="secondary edit-client" data-id="${x.id}">Edytuj</button>${currentUser.role!=='employee'? `<button class="danger-ghost delete-client" data-id="${x.id}">Usuń</button>`:''}</div>
      </div>`).join(''):'<div class="empty clients-empty">Brak klientów pasujących do filtrów.</div>';
    document.querySelectorAll('.open-client').forEach(b=>b.onclick=()=>{selectedClientId=Number(b.dataset.id);localStorage.setItem('brcrm_client_id',String(selectedClientId));view='clientDetail';localStorage.setItem('brcrm_view',view);render()});
+   document.querySelectorAll('[data-client-favorite]').forEach(b=>b.onclick=async()=>{
+     const id=Number(b.dataset.clientFavorite),isFav=favoriteIds.has(id);
+     try{
+       if(isFav){await api('/api/client-favorites?client_id='+id,{method:'DELETE'});favoriteIds.delete(id)}
+       else{await api('/api/client-favorites',{method:'POST',body:JSON.stringify({client_id:id})});favoriteIds.add(id)}
+       draw();
+     }catch(e){alert(e.message)}
+   });
    document.querySelectorAll('.edit-client').forEach(b=>b.onclick=()=>openEdit(Number(b.dataset.id)));
    document.querySelectorAll('.delete-client').forEach(b=>b.onclick=async()=>{if(!confirm('Usunąć tego klienta?'))return;await api('/api/clients?id='+b.dataset.id,{method:'DELETE'});await clientsView()});
  };
