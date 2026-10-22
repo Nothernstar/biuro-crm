@@ -316,7 +316,8 @@ async function usersView(){
 }
 
 async function clientsView(){
- const [clients,favorites]=await Promise.all([api('/api/clients'),api('/api/client-favorites').catch(()=>[])]);
+ let clients=[],page=1,total=0,requestId=0,searchTimer;
+ const favorites=await api('/api/client-favorites').catch(()=>[]);
  const favoriteIds=new Set(favorites.map(x=>Number(x.id)));
  app.innerHTML=`
  <div class="clients-toolbar">
@@ -349,6 +350,7 @@ async function clientsView(){
    </div>
    <div class="clients-list" id="clientsGrid"></div>
  </div>
+ <div id="clientPagination" class="client-pagination" aria-live="polite"></div>
  <div class="client-form-panel hidden" id="clientFormPanel">
    <div class="client-form-card">
      <div class="modal-head"><div><h2 id="clientFormTitle">Nowy klient</h2><p>Uzupełnij dane klienta lub pobierz je z rejestru publicznego.</p></div><button id="closeClientForm">×</button></div>
@@ -389,11 +391,8 @@ async function clientsView(){
  const typeLabel=t=>t==='jdg'?'JDG':t==='company'?'Spółka':t==='foundation'?'Fundacja':'Do uzupełnienia';
  const statusLabel=s=>s==='suspended'?'Zawieszony':s==='inactive'?'Nieobsługiwany':s==='payment_hold'?'Wstrzymany – płatności':'Aktywny';
  const draw=()=>{
-   const term=q.value.toLowerCase().trim(),entity=typeFilter.value,status=statusFilter.value,sort=sortSelect.value;
-   const filtered=clients
-     .filter(x=>(!entity||(entity==='incomplete'?!x.entity_type:x.entity_type===entity))&&(!status||x.client_status===status)&&(x.name+' '+(x.first_name||'')+' '+(x.last_name||'')+' '+(x.contact_name||'')+' '+(x.nip||'')+' '+(x.regon||'')+' '+(x.krs||'')+' '+(x.pesel||'')).toLowerCase().includes(term))
-     .sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''),'pl',{sensitivity:'base'})*(sort==='desc'?-1:1));
-   grid.innerHTML=filtered.length?filtered.map(x=>`
+ const filtered=clients;
+ grid.innerHTML=filtered.length?filtered.map(x=>`
      <div class="client-list-row">
        <div class="client-list-name"><button type="button" class="client-favorite-toggle ${favoriteIds.has(Number(x.id))?'is-favorite':''}" data-client-favorite="${x.id}" aria-label="${favoriteIds.has(Number(x.id))?'Usuń z ulubionych':'Dodaj do ulubionych'}">${favoriteIds.has(Number(x.id))?'★':'☆'}</button><span class="client-avatar">${initials(x.name)}</span><button class="client-name-link open-client" data-id="${x.id}" type="button">${x.name}</button></div>
        <div><span class="client-status-pill status-${x.client_status||'active'}">${statusLabel(x.client_status)}</span></div>
@@ -417,6 +416,25 @@ async function clientsView(){
    document.querySelectorAll('.edit-client').forEach(b=>b.onclick=()=>openEdit(Number(b.dataset.id)));
    document.querySelectorAll('.delete-client').forEach(b=>b.onclick=async()=>{if(!confirm('Usunąć tego klienta?'))return;await api('/api/clients?id='+b.dataset.id,{method:'DELETE'});await clientsView()});
  };
+ const pager=$('#clientPagination');
+ const loadPage=async()=>{
+  const seq=++requestId;
+  const params=new URLSearchParams({page:String(page),limit:'25',search:q.value.trim(),type:typeFilter.value,status:statusFilter.value,sort:sortSelect.value});
+  try{
+   const data=await api('/api/clients?'+params);
+   if(seq!==requestId)return;
+   clients=data.items;total=data.total;
+   if(page>1&&!clients.length&&total){page=Math.max(1,Math.ceil(total/25));return loadPage()}
+   draw();
+   const pages=Math.max(1,Math.ceil(total/25));
+   pager.innerHTML='<span>Klienci: '+total+' • Strona '+page+' z '+pages+'</span> <button type="button" id="clientPrev" '+(page===1?'disabled':'')+'>← Poprzednia</button> <button type="button" id="clientNext" '+(page>=pages?'disabled':'')+'>Następna →</button>';
+   $('#clientPrev').onclick=()=>{page--;loadPage()};
+   $('#clientNext').onclick=()=>{page++;loadPage()};
+  }catch(e){if(seq===requestId){grid.textContent='Błąd pobierania: '+e.message;pager.textContent=''}}
+ };
+ q.oninput=()=>{clearTimeout(searchTimer);searchTimer=setTimeout(()=>{page=1;loadPage()},300)};
+ [typeFilter,statusFilter,sortSelect].forEach(el=>el.onchange=()=>{page=1;loadPage()});
+ loadPage();
  const setEntity=type=>{
    const valid=['jdg','company','foundation'].includes(type);
    form.entity_type.value=valid?type:'';
