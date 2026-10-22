@@ -453,7 +453,7 @@ async function clientsView(){
  };
  const openNew=()=>{form.reset();form.id.value='';form.client_status.value='active';setEntity('jdg');$('#gusStatus').classList.add('hidden');$('#clientFormTitle').textContent='Nowy klient';panel.classList.remove('hidden')};
  const openEdit=id=>{const x=clients.find(v=>Number(v.id)===id);if(!x)return;form.id.value=x.id;form.name.value=x.name;form.nip.value=x.nip||'';form.regon.value=x.regon||'';form.first_name.value=x.first_name||'';form.last_name.value=x.last_name||'';form.pesel.value=x.pesel||'';form.krs.value=x.krs||'';form.client_status.value=x.client_status||'active';setEntity(x.entity_type||null);$('#gusStatus').classList.add('hidden');$('#clientFormTitle').textContent='Edytuj klienta';panel.classList.remove('hidden')};
- $('#openClientForm').onclick=openNew;$('#closeClientForm').onclick=()=>panel.classList.add('hidden');q.oninput=draw;typeFilter.onchange=draw;statusFilter.onchange=draw;sortSelect.onchange=draw;
+ $('#openClientForm').onclick=openNew;$('#closeClientForm').onclick=()=>panel.classList.add('hidden');
  document.querySelectorAll('[data-entity]').forEach(b=>b.onclick=()=>setEntity(b.dataset.entity));
  document.querySelectorAll('[data-gus]').forEach(b=>b.onclick=async()=>{
    const kind=b.dataset.gus,val=String(form[kind].value||'').replace(/\D/g,''),status=$('#gusStatus');
