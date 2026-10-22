@@ -1872,3 +1872,7 @@ button.reminder-row:hover{background:#fff}
   .lead-row-actions{flex-wrap:wrap;gap:4px}
   .lead-row-actions .secondary,.lead-row-actions .danger-ghost{padding:6px 8px}
 }
+
+.client-pagination{display:flex;align-items:center;justify-content:flex-end;gap:10px;flex-wrap:wrap;padding:14px 4px;color:#667085;font-size:12px}
+.client-pagination button{border:1px solid #e1e6ee;background:#fff;border-radius:9px;padding:8px 12px;color:#303746;font-weight:600;cursor:pointer}
+.client-pagination button:disabled{opacity:.45;cursor:default}
