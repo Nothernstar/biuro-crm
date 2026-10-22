@@ -30,14 +30,16 @@ export default async function handler(req,res){
       `;
       return res.status(200).json(rows);
     }')+'%';
-        const matches=sql`FROM clients WHERE
+        const [countRows,rows]=await Promise.all([
+          sql`SELECT COUNT(*)::int AS total FROM clients WHERE
           (${!search} OR name ILIKE ${pattern} OR first_name ILIKE ${pattern} OR last_name ILIKE ${pattern} OR contact_name ILIKE ${pattern} OR nip ILIKE ${pattern} OR regon ILIKE ${pattern} OR krs ILIKE ${pattern} OR pesel ILIKE ${pattern})
           AND (${!type} OR (${type}='incomplete' AND (entity_type IS NULL OR entity_type='')) OR entity_type=${type})
-          AND (${!status} OR client_status=${status})`;
-        const [countRows,rows]=await Promise.all([
-          sql`SELECT COUNT(*)::int AS total ${matches}`,
+          AND (${!status} OR client_status=${status})`,
           sql`SELECT id,name,contact_name,first_name,last_name,entity_type,nip,pesel,krs,regon,client_status,profile_complete,created_at
-              ${matches} ORDER BY
+              FROM clients WHERE
+          (${!search} OR name ILIKE ${pattern} OR first_name ILIKE ${pattern} OR last_name ILIKE ${pattern} OR contact_name ILIKE ${pattern} OR nip ILIKE ${pattern} OR regon ILIKE ${pattern} OR krs ILIKE ${pattern} OR pesel ILIKE ${pattern})
+          AND (${!type} OR (${type}='incomplete' AND (entity_type IS NULL OR entity_type='')) OR entity_type=${type})
+          AND (${!status} OR client_status=${status}) ORDER BY
               CASE WHEN ${sort}='asc' THEN lower(name) END ASC,
               CASE WHEN ${sort}='desc' THEN lower(name) END DESC,
               id ASC LIMIT ${limit} OFFSET ${(page-1)*limit}`
